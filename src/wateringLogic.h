@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 #include <vector>
 #include "pinConfig.h"
+#include "helpers.h"
 
 // Külső változók, típusok
 struct WateringZone {
@@ -18,7 +19,7 @@ struct WateringZone {
 };
 extern std::vector<WateringZone> activeZones;
 
-int readSoilMoisture(int pin);
+int readSoilMoisture(int analogPin, int zoneId);
 int getRelayPin(int zoneId);
 int getSensorPin(int zoneId);
 String getZoneFilename(int zoneId);
@@ -79,7 +80,7 @@ void checkScheduledWatering() {
         int daysSinceStart = today - cycleStart;
         if (daysSinceStart < 0 || (dryCycle > 0 && daysSinceStart % dryCycle != 0)) continue;
 
-        int moisture = readSoilMoisture(getSensorPin(zoneId));
+        int moisture = readSoilMoisture(getSensorPin(zoneId), zoneId);
         if (moisture < maxMoisture) {
           Serial.printf("[AUTO] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
           digitalWrite(getRelayPin(zoneId), HIGH);
@@ -120,7 +121,7 @@ void checkIntervalMaxZones() {
 
     int sensor = getSensorPin(zoneId);
     int relay = getRelayPin(zoneId);
-    int moisture = readSoilMoisture(sensor);
+    int moisture = readSoilMoisture(sensor, zoneId);
     if (moisture < maxMoisture) {
       Serial.printf("[INT-MAX] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
       digitalWrite(relay, HIGH);

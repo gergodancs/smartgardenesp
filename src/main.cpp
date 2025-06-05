@@ -6,6 +6,8 @@
 #include "pinConfig.h"
 #include <vector>
 #include "wateringLogic.h"
+#include "helpers.h"
+#include "wifiManager.h"
 
 const char* ssid = "SmartGarden";
 const char* password = "12345678";
@@ -36,37 +38,6 @@ int readSoilMoisture(int analogPin, int zoneId) {
   return constrain(percent, 0, 100);
 }
 
-
-int getRelayPin(int zoneId) {
-  switch (zoneId) {
-    case 1: return RELAY_ZONE_1;
-    case 2: return RELAY_ZONE_2;
-    case 3: return RELAY_ZONE_3;
-    case 4: return RELAY_ZONE_4;
-    case 5: return RELAY_ZONE_5;
-    case 6: return RELAY_ZONE_6;
-    default: return -1;
-  }
-}
-
-int getSensorPin(int zoneId) {
-  switch (zoneId) {
-    case 1: return SENSOR_ZONE_1;
-    case 2: return SENSOR_ZONE_2;
-    case 3: return SENSOR_ZONE_3;
-    case 4: return SENSOR_ZONE_4;
-    case 5: return SENSOR_ZONE_5;
-    case 6: return SENSOR_ZONE_6;
-    default: return -1;
-  }
-}
-
-
-// Beállításfájl elérési útja egy adott zónához
-String getZoneFilename(int zoneId) {
-  return "/zone_" + String(zoneId) + ".json";
-}
-
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
   Serial.begin(115200);
@@ -80,10 +51,8 @@ void setup() {
   pinMode(RELAY_ZONE_5, OUTPUT); digitalWrite(RELAY_ZONE_5, LOW);
   pinMode(RELAY_ZONE_6, OUTPUT); digitalWrite(RELAY_ZONE_6, LOW);
 
-  // Wi-Fi AP indítása
-  WiFi.softAP(ssid, password);
-  Serial.println("Access Point létrehozva");
-  Serial.println(WiFi.softAPIP());
+  // Wi-Fi indítása
+  setupWiFi();
 
   // Fájlrendszer elindítása
   if (!LittleFS.begin()) {
@@ -94,6 +63,15 @@ void setup() {
 
   // Statikus fájlok kiszolgálása (React UI)
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+  // elérhetö a hálózatok
+  server.on("/api/wifi-scan", HTTP_GET, handleWiFiScanRequest);
+
+  //csatlakozás hálózathoz
+  server.on("/api/wifi-connect", HTTP_POST, [](AsyncWebServerRequest *request) {
+    request->send(200); // dummy
+  }, NULL, handleWiFiConnectRequest);
+  
 
   //moisture calibration
   server.on("/api/set-calibration", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -140,6 +118,37 @@ void setup() {
     serializeJson(resDoc, response);
   
     request->send(200, "application/json", response);
+  });
+
+  // mentett kalibracios ertekek olvasasa
+
+  server.on("/api/get-calibration", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (!request->hasParam("zone")) {
+      request->send(400, "application/json", "{\"error\":\"Missing zone\"}");
+      return;
+    }
+  
+    int zoneId = request->getParam("zone")->value().toInt();
+    String filename = getZoneFilename(zoneId);
+  
+    if (!LittleFS.exists(filename)) {
+      request->send(404, "application/json", "{\"error\":\"Calibration data not found\"}");
+      return;
+    }
+  
+    File file = LittleFS.open(filename, "r");
+    DynamicJsonDocument doc(256);
+    deserializeJson(doc, file);
+    file.close();
+  
+    DynamicJsonDocument response(256);
+    response["zoneId"] = zoneId;
+    response["dryValue"] = doc["dryValue"] | -1;
+    response["wetValue"] = doc["wetValue"] | -1;
+  
+    String json;
+    serializeJson(response, json);
+    request->send(200, "application/json", json);
   });
   
 
