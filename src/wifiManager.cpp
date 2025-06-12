@@ -12,6 +12,8 @@ void setupWiFi() {
   Serial.print("🌱 AP elérhető: ");
   Serial.println(WiFi.softAPIP());
 
+  bool staConnected = false;
+
   if (LittleFS.exists("/wifi.json")) {
     File file = LittleFS.open("/wifi.json", "r");
     DynamicJsonDocument doc(256);
@@ -33,20 +35,30 @@ void setupWiFi() {
         Serial.print(".");
       }
 
-      if (WiFi.status() == WL_CONNECTED) {
-        Serial.println();
-        Serial.print("✅ STA IP-cím: ");
-        Serial.println(WiFi.localIP());
-      } else {
-        Serial.println("\n⚠️ Nem sikerült csatlakozni a ház WiFi-hez.");
-      }
+      staConnected = WiFi.status() == WL_CONNECTED;
     } else {
       Serial.println("⚠️ Hiba a wifi.json fájl beolvasásakor.");
     }
   } else {
     Serial.println("ℹ️ Nincs elmentett WiFi beállítás (wifi.json).");
   }
+
+  if (staConnected) {
+    Serial.println();
+    Serial.print("✅ STA IP-cím: ");
+    Serial.println(WiFi.localIP());
+
+    Serial.print("📶 Csatlakozott hálózat: ");
+    Serial.println(WiFi.SSID());
+
+    Serial.print("📡 Jelerősség (RSSI): ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+  } else {
+    Serial.println("⚠️ Nem sikerült csatlakozni STA módban.");
+  }
 }
+
 
 void handleWiFiScanRequest(AsyncWebServerRequest *request) {
   int n = WiFi.scanNetworks();

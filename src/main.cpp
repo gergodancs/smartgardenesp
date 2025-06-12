@@ -52,7 +52,7 @@ void setup() {
   pinMode(RELAY_ZONE_6, OUTPUT); digitalWrite(RELAY_ZONE_6, LOW);
 
   // Wi-Fi indítása
-  setupWiFi();
+
 
   // Fájlrendszer elindítása
   if (!LittleFS.begin()) {
@@ -63,6 +63,8 @@ void setup() {
 
   // Statikus fájlok kiszolgálása (React UI)
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+  setupWiFi();
 
   // elérhetö a hálózatok
   server.on("/api/wifi-scan", HTTP_GET, handleWiFiScanRequest);
@@ -119,6 +121,24 @@ void setup() {
   
     request->send(200, "application/json", response);
   });
+
+  server.on("/api/wifi-status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    DynamicJsonDocument doc(256);
+  
+    if (WiFi.status() == WL_CONNECTED) {
+      doc["connected"] = true;
+      doc["ip"] = WiFi.localIP().toString();
+      doc["ssid"] = WiFi.SSID();
+      doc["rssi"] = WiFi.RSSI();
+    } else {
+      doc["connected"] = false;
+    }
+  
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+  });
+  
 
   // mentett kalibracios ertekek olvasasa
 
