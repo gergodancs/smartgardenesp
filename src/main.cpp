@@ -8,6 +8,10 @@
 #include "wateringLogic.h"
 #include "helpers.h"
 #include "wifiManager.h"
+#include "routes/routes-manual-watering.h"
+#include "routes/routes-wifi.h"
+#include "routes/routes-zone.h"
+
 
 const char* ssid = "SmartGarden";
 const char* password = "12345678";
@@ -51,9 +55,6 @@ void setup() {
   pinMode(RELAY_ZONE_5, OUTPUT); digitalWrite(RELAY_ZONE_5, LOW);
   pinMode(RELAY_ZONE_6, OUTPUT); digitalWrite(RELAY_ZONE_6, LOW);
 
-  // Wi-Fi indítása
-
-
   // Fájlrendszer elindítása
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount sikertelen!");
@@ -64,234 +65,13 @@ void setup() {
   // Statikus fájlok kiszolgálása (React UI)
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
+  // Wi-Fi indítása
   setupWiFi();
 
-  // elérhetö a hálózatok
-  server.on("/api/wifi-scan", HTTP_GET, handleWiFiScanRequest);
-
-  //csatlakozás hálózathoz
-  server.on("/api/wifi-connect", HTTP_POST, [](AsyncWebServerRequest *request) {
-    request->send(200); // dummy
-  }, NULL, handleWiFiConnectRequest);
-  
-
-  //moisture calibration
-  server.on("/api/set-calibration", HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!request->hasParam("zone") || !request->hasParam("type")) {
-      request->send(400, "application/json", "{\"error\":\"Missing parameters\"}");
-      return;
-    }
-  
-    int zoneId = request->getParam("zone")->value().toInt();
-    String type = request->getParam("type")->value(); // "dry" vagy "wet"
-    int sensorPin = getSensorPin(zoneId);
-    int value = analogRead(sensorPin);
-  
-    String filename = getZoneFilename(zoneId);
-    DynamicJsonDocument doc(1024);
-  
-    if (LittleFS.exists(filename)) {
-      File file = LittleFS.open(filename, "r");
-      deserializeJson(doc, file);
-      file.close();
-    } else {
-      doc["zoneId"] = zoneId;
-    }
-  
-    if (type == "dry") {
-      doc["dryValue"] = value;
-    } else if (type == "wet") {
-      doc["wetValue"] = value;
-    } else {
-      request->send(400, "application/json", "{\"error\":\"Invalid type\"}");
-      return;
-    }
-  
-    File file = LittleFS.open(filename, "w");
-    serializeJson(doc, file);
-    file.close();
-  
-    // ✅ Teljes válasz: típus + érték
-    String response;
-    DynamicJsonDocument resDoc(128);
-    resDoc["status"] = "calibrated";
-    resDoc["type"] = type;
-    resDoc["value"] = value;
-    serializeJson(resDoc, response);
-  
-    request->send(200, "application/json", response);
-  });
-
-  server.on("/api/wifi-status", HTTP_GET, [](AsyncWebServerRequest *request) {
-    DynamicJsonDocument doc(256);
-  
-    if (WiFi.status() == WL_CONNECTED) {
-      doc["connected"] = true;
-      doc["ip"] = WiFi.localIP().toString();
-      doc["ssid"] = WiFi.SSID();
-      doc["rssi"] = WiFi.RSSI();
-    } else {
-      doc["connected"] = false;
-    }
-  
-    String response;
-    serializeJson(doc, response);
-    request->send(200, "application/json", response);
-  });
-  
-
-  // mentett kalibracios ertekek olvasasa
-
-  server.on("/api/get-calibration", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!request->hasParam("zone")) {
-      request->send(400, "application/json", "{\"error\":\"Missing zone\"}");
-      return;
-    }
-  
-    int zoneId = request->getParam("zone")->value().toInt();
-    String filename = getZoneFilename(zoneId);
-  
-    if (!LittleFS.exists(filename)) {
-      request->send(404, "application/json", "{\"error\":\"Calibration data not found\"}");
-      return;
-    }
-  
-    File file = LittleFS.open(filename, "r");
-    DynamicJsonDocument doc(256);
-    deserializeJson(doc, file);
-    file.close();
-  
-    DynamicJsonDocument response(256);
-    response["zoneId"] = zoneId;
-    response["dryValue"] = doc["dryValue"] | -1;
-    response["wetValue"] = doc["wetValue"] | -1;
-  
-    String json;
-    serializeJson(response, json);
-    request->send(200, "application/json", json);
-  });
-  
-
-  // Zóna beállítás lekérdezés
-  server.on("/api/zone-config", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (!request->hasParam("zone")) {
-      request->send(400, "application/json", "{\"error\":\"Missing zone parameter\"}");
-      return;
-    }
-    int zoneId = request->getParam("zone")->value().toInt();
-    String filename = getZoneFilename(zoneId);
-
-    if (!LittleFS.exists(filename)) {
-      request->send(200, "application/json", "{}");
-      return;
-    }
-
-    File file = LittleFS.open(filename, "r");
-    String content = file.readString();
-    file.close();
-    request->send(200, "application/json", content);
-  });
-
- // Zóna beállítás mentés
-server.on("/api/zone-config", HTTP_POST, [](AsyncWebServerRequest *request){
-  request->send(200, "application/json", "{\"status\":\"ok\"}");
-}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-  Serial.println("➡️ POST /api/zone-config hívás érkezett");
-
-  DynamicJsonDocument doc(2048);
-  DeserializationError error = deserializeJson(doc, data);
-
-  if (error) {
-    Serial.print("[HIBA] JSON feldolgozási hiba: ");
-    Serial.println(error.c_str());
-    request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
-  }
-
-  serializeJsonPretty(doc, Serial); // Nyomtatás, hogy mit kaptunk
-  Serial.println();
-
-  if (!doc.containsKey("zoneId")) {
-    Serial.println("[HIBA] Hiányzik a zoneId kulcs!");
-    request->send(400, "application/json", "{\"error\":\"Missing zoneId\"}");
-    return;
-  }
-
-  int zoneId = doc["zoneId"];
-  String filename = getZoneFilename(zoneId);
-  Serial.printf("📝 Mentés fájlba: %s\n", filename.c_str());
-
-  File file = LittleFS.open(filename, "w");
-  if (!file) {
-    Serial.println("[HIBA] Nem sikerült megnyitni a fájlt írásra.");
-    request->send(500, "application/json", "{\"error\":\"Cannot save config\"}");
-    return;
-  }
-
-  serializeJson(doc, file);
-  file.close();
-  Serial.println("✅ Fájl mentése sikeres.");
-  request->send(200, "application/json", "{\"status\":\"saved\"}");
-});
-
-
-  // Azonnali locsolás indítása
-  server.on("/api/water-now", HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!request->hasParam("zone")) {
-      request->send(400, "application/json", "{\"error\":\"Missing zone parameter\"}");
-      return;
-    }
-    int zoneId = request->getParam("zone")->value().toInt();
-    String filename = getZoneFilename(zoneId);
-
-    if (!LittleFS.exists(filename)) {
-      request->send(404, "application/json", "{\"error\":\"No config found for zone\"}");
-      return;
-    }
-
-    File file = LittleFS.open(filename, "r");
-    DynamicJsonDocument doc(1024);
-    deserializeJson(doc, file);
-    file.close();
-
-    int maxMoisture = doc["maxMoisture"] | 60; // alapérték, ha hiányzik
-    int relayPin = getRelayPin(zoneId);
-    int sensorPin = getSensorPin(zoneId);
-
-    digitalWrite(relayPin, HIGH);
-    digitalWrite(RELAY_PUMP, HIGH);
-
-    activeZones.push_back({zoneId, relayPin, sensorPin, maxMoisture});
-    Serial.printf("Zóna %d locsolás elindítva\n", zoneId);
-    request->send(200, "application/json", "{\"status\":\"watering\"}");
-  });
-
-  // Azonnali locsolás leállítása
-  server.on("/api/water-stop", HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!request->hasParam("zone")) {
-      request->send(400, "application/json", "{\"error\":\"Missing zone parameter\"}");
-      return;
-    }
-    int zoneId = request->getParam("zone")->value().toInt();
-
-    activeZones.erase(
-      std::remove_if(activeZones.begin(), activeZones.end(), [zoneId](WateringZone z){
-        if (z.zoneId == zoneId) {
-          digitalWrite(z.relayPin, LOW);
-          Serial.printf("Zóna %d locsolás leállítva\n", zoneId);
-          return true;
-        }
-        return false;
-      }),
-      activeZones.end()
-    );
-
-    if (activeZones.empty()) {
-      digitalWrite(RELAY_PUMP, LOW);
-    }
-
-    request->send(200, "application/json", "{\"status\":\"stopped\"}");
-  });
+  registerZoneRoutes(server);
+  registerWiFiRoutes(server);
+  registerManualWateringRoutes(server);
+    
 
   server.begin();
   Serial.println("Web szerver elindítva");
