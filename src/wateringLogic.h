@@ -187,5 +187,119 @@ void checkIntervalDurationZones() {
   }
 }
 
+void checkIntelligentDryCycleZones() {
+  int today = currentDayOfYear();
+  int hour = currentHour();
+  if (today < 0 || hour < 0) return;
+
+  for (int zoneId = 1; zoneId <= 6; ++zoneId) {
+    String filename = getZoneFilename(zoneId);
+    if (!LittleFS.exists(filename)) continue;
+
+    File file = LittleFS.open(filename, "r");
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, file);
+    file.close();
+
+    if (doc["mode"] != "intelligent-dry-cycle") continue;
+
+    // Konfigurációs értékek
+    int dryMin = doc["dryRangeMin"] | 25;
+    int dryMax = doc["dryRangeMax"] | 40;
+    int requiredDryHours = doc["requiredDryHours"] | 72;
+    int dryCycleDays = doc["dryCycleDays"] | 3;
+    int maxMoisture = doc["maxMoisture"] | 65;
+    bool skipIfRain = doc["skipIfRainExpected"] | true;
+    int lastDay = doc["lastWateredDay"] | 0;
+
+    if ((today - lastDay) < dryCycleDays) continue;
+
+    // 🔮 Időjárás integráció (opcionális)
+   // if (skipIfRain && weatherForecastRain()) {
+    //  Serial.printf("[INT-DRY] Zóna %d: Eső várható, locsolás elhalasztva\n", zoneId);
+     // continue;
+   // }
+
+    // Száraz órák betöltése
+    String historyFile = "/drylog_" + String(zoneId) + ".json";
+    if (!LittleFS.exists(historyFile)) continue;
+
+    File hFile = LittleFS.open(historyFile, "r");
+    DynamicJsonDocument hist(4096);
+    deserializeJson(hist, hFile);
+    hFile.close();
+
+    int dryHours = 0;
+    JsonArray hours = hist["hours"];
+    for (JsonObject obj : hours) {
+      int d = obj["day"];
+      int h = obj["hour"];
+      int m = obj["moisture"];
+      if (d > lastDay && m >= dryMin && m <= dryMax) {
+        dryHours++;
+      }
+    }
+
+    if (dryHours >= requiredDryHours) {
+      Serial.printf("[INT-DRY] Zóna %d: %d száraz óra után locsolás indul\n", zoneId, dryHours);
+      int relay = getRelayPin(zoneId);
+      int sensor = getSensorPin(zoneId);
+      digitalWrite(relay, HIGH);
+      digitalWrite(RELAY_PUMP, HIGH);
+      activeZones.push_back({zoneId, relay, sensor, maxMoisture});
+      
+      // Locsolási nap mentése
+      doc["lastWateredDay"] = today;
+      File outFile = LittleFS.open(filename, "w");
+      serializeJson(doc, outFile);
+      outFile.close();
+    } else {
+      Serial.printf("[INT-DRY] Zóna %d: csak %d száraz óra – nincs locsolás\n", zoneId, dryHours);
+    }
+  }
+}
+
+void logMoistureForDryZones() {
+  int today = currentDayOfYear();
+  int hour = currentHour();
+  if (today < 0 || hour < 0) return;
+
+  for (int zoneId = 1; zoneId <= 6; ++zoneId) {
+    String filename = getZoneFilename(zoneId);
+    if (!LittleFS.exists(filename)) continue;
+
+    File file = LittleFS.open(filename, "r");
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, file);
+    file.close();
+
+    if (doc["mode"] != "intelligent-dry-cycle") continue;
+
+    int moisture = readSoilMoisture(getSensorPin(zoneId), zoneId);
+
+    // Log hozzáadása
+    String histFile = "/drylog_" + String(zoneId) + ".json";
+    DynamicJsonDocument hist(4096);
+    if (LittleFS.exists(histFile)) {
+      File f = LittleFS.open(histFile, "r");
+      deserializeJson(hist, f);
+      f.close();
+    }
+
+    if (!hist.containsKey("hours")) hist["hours"] = JsonArray();
+
+    JsonArray hours = hist["hours"];
+    JsonObject entry = hours.createNestedObject();
+    entry["day"] = today;
+    entry["hour"] = hour;
+    entry["moisture"] = moisture;
+
+    // mentés
+    File f = LittleFS.open(histFile, "w");
+    serializeJson(hist, f);
+    f.close();
+  }
+}
+
 
 #endif

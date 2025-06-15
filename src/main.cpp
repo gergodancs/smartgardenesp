@@ -306,6 +306,8 @@ void loop() {
     checkScheduledWatering();
     checkIntervalMaxZones();
     checkIntervalDurationZones();
+    checkIntelligentDryCycleZones();
+    logMoistureForDryZones();
     lastScheduleCheck = now;
   }
 
