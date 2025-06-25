@@ -26,7 +26,9 @@ std::vector<WateringZone> activeZones;
 int readSoilMoisture(int analogPin, int zoneId) {
   int raw = analogRead(analogPin);
   String filename = getZoneFilename(zoneId);
-  int dry = 3000, wet = 1200; // default fallback értékek
+  int dry = 3000, wet = 1200; // fallback default
+
+  bool calibrated = false;
 
   if (LittleFS.exists(filename)) {
     File file = LittleFS.open(filename, "r");
@@ -34,13 +36,21 @@ int readSoilMoisture(int analogPin, int zoneId) {
     deserializeJson(doc, file);
     file.close();
 
-    dry = doc["dryValue"] | dry;
-    wet = doc["wetValue"] | wet;
+    if (doc.containsKey("dryValue") && doc.containsKey("wetValue")) {
+      dry = doc["dryValue"];
+      wet = doc["wetValue"];
+      calibrated = true;
+    }
+  }
+
+  if (!calibrated) {
+    return -1; // jelzi, hogy nincs kalibrált szenzor
   }
 
   int percent = map(raw, dry, wet, 0, 100);
   return constrain(percent, 0, 100);
 }
+
 
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
@@ -95,18 +105,24 @@ void loop() {
     for (auto it = activeZones.begin(); it != activeZones.end(); ) {
       bool shouldRemove = false;
 
-      // interval-duration kezelés
+      // ⏱️ interval-duration kezelés
       if (it->durationMillis > 0 && now - it->startTime >= it->durationMillis) {
-        Serial.printf("Zóna %d locsolás vége (idő letelt)\n", it->zoneId);
+        Serial.printf("⏹️ Zóna %d locsolás vége (idő letelt)\n", it->zoneId);
         digitalWrite(it->relayPin, LOW);
         shouldRemove = true;
       }
 
-      // moisture-based ellenőrzés
+      // 💧 moisture-based ellenőrzés
       else if (it->durationMillis == 0) {
         int moisture = readSoilMoisture(it->sensorPin, it->zoneId);
+
+        // 🔎 extra log minden 5 másodpercben, ha moisture-alapú locsolás aktív
+        Serial.printf("🟢 Zóna %d aktív – Nedvesség: %d%% (Cél: %d%%)\n",
+                      it->zoneId, moisture, it->maxMoisture);
+
         if (moisture >= it->maxMoisture) {
-          Serial.printf("Zóna %d nedvesség elérte a célt (%d%%)\n", it->zoneId, moisture);
+          Serial.printf("⏹️ Zóna %d locsolás vége – Nedvesség elérte a célt (%d%%)\n",
+                        it->zoneId, moisture);
           digitalWrite(it->relayPin, LOW);
           shouldRemove = true;
         }
