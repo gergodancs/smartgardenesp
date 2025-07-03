@@ -41,6 +41,17 @@ void checkIntervalDurationZones() {
       int cycleStart = date.tm_yday + 1;
       int daysSinceStart = today - cycleStart;
 
+      // Időablak-ellenőrzés
+      if (cycle.containsKey("startHour") && cycle.containsKey("endHour")) {
+        int startHour = cycle["startHour"];
+        int endHour = cycle["endHour"];
+        int now = currentHour();
+        if (!(now >= startHour && now < endHour)) {
+          Serial.printf("⏱️  Zóna %d ciklusa kihagyva: %d óra nincs az időablakban (%d–%d)\n", zoneId, now, startHour, endHour);
+          continue;
+        }
+      }
+
       if (daysSinceStart < 0 || intervalDays == 0 || durationMinutes == 0 || (today - lastDay < intervalDays)) continue;
 
       Serial.printf("[INT-DURATION] Zóna %d locsolás indul (%d perc)\n", zoneId, durationMinutes);

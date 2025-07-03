@@ -12,7 +12,6 @@ int getRelayPin(int zoneId);
 int getSensorPin(int zoneId);
 String getZoneFilename(int zoneId);
 
-// Ezeket csak itt használjuk, ezért mehetnek ide:
 bool alreadyCheckedToday = false;
 int lastCheckedDay = -1;
 
@@ -21,9 +20,6 @@ void checkScheduledWatering() {
   int hour = currentHour();
   if (today < 0 || hour < 0) return;
 
-  if (hour == 21 && (!alreadyCheckedToday || lastCheckedDay != today)) {
-    alreadyCheckedToday = true;
-    lastCheckedDay = today;
 
     for (int zoneId = 1; zoneId <= 6; ++zoneId) {
       String filename = getZoneFilename(zoneId);
@@ -44,17 +40,29 @@ void checkScheduledWatering() {
         int dryCycle = cycle["dryCycle"];
         int startMonth = cycle["startMonth"];
         int startDay = cycle["startDay"];
-
+      
+        // Ellenőrizzük az időablakot
+        if (cycle.containsKey("startHour") && cycle.containsKey("endHour")) {
+          int startHour = cycle["startHour"];
+          int endHour = cycle["endHour"];
+          if (!(hour >= startHour && hour < endHour)) {
+            Serial.printf("⏱️  Zóna %d ciklusa kihagyva: %d óra nincs az időablakban (%d–%d)\n", zoneId, hour, startHour, endHour);
+            continue;
+          }
+        }
+      
+        // Ellenőrizzük a ciklus napját
         struct tm date = {0};
         date.tm_year = 2024 - 1900;
         date.tm_mon = startMonth - 1;
         date.tm_mday = startDay;
         mktime(&date);
         int cycleStart = date.tm_yday + 1;
-
+      
         int daysSinceStart = today - cycleStart;
         if (daysSinceStart < 0 || (dryCycle > 0 && daysSinceStart % dryCycle != 0)) continue;
-
+      
+        // Nedvesség alapján döntés
         int moisture = readSoilMoisture(getSensorPin(zoneId), zoneId);
         if (moisture < maxMoisture) {
           Serial.printf("[AUTO] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
@@ -64,10 +72,5 @@ void checkScheduledWatering() {
           break;
         }
       }
-    }
-  }
-
-  if (hour == 0 && today != lastCheckedDay) {
-    alreadyCheckedToday = false;
   }
 }

@@ -48,6 +48,17 @@ void checkIntervalMaxZones() {
       int relay = getRelayPin(zoneId);
       int moisture = readSoilMoisture(sensor, zoneId);
 
+      if (cycle.containsKey("startHour") && cycle.containsKey("endHour")) {
+        int startHour = cycle["startHour"];
+        int endHour = cycle["endHour"];
+        int now = currentHour();  // Használhatod a helper függvényedet is
+        if (!(now >= startHour && now < endHour)) {
+          Serial.printf("⏱️  Zóna %d ciklusa kihagyva: %d óra nincs az időablakban (%d–%d)\n", zoneId, now, startHour, endHour);
+          continue;
+        }
+      }
+      
+
       if (moisture < maxMoisture) {
         Serial.printf("[INT-MAX] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
         digitalWrite(relay, LOW);

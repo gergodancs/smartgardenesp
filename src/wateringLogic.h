@@ -61,11 +61,21 @@ void checkIntelligentDryCycleZones() {
 
     if ((today - lastDay) < dryCycleDays) continue;
 
+    // ⏰ Időablak-ellenőrzés
+    if (doc.containsKey("startHour") && doc.containsKey("endHour")) {
+      int startHour = doc["startHour"];
+      int endHour = doc["endHour"];
+      if (!(hour >= startHour && hour < endHour)) {
+        Serial.printf("⏱️  Zóna %d: %d óra nincs az időablakban (%d–%d) – kihagyva\n", zoneId, hour, startHour, endHour);
+        continue;
+      }
+    }
+
     // 🔮 Időjárás integráció (opcionális)
-   // if (skipIfRain && weatherForecastRain()) {
-    //  Serial.printf("[INT-DRY] Zóna %d: Eső várható, locsolás elhalasztva\n", zoneId);
-     // continue;
-   // }
+    // if (skipIfRain && weatherForecastRain()) {
+    //   Serial.printf("[INT-DRY] Zóna %d: Eső várható, locsolás elhalasztva\n", zoneId);
+    //   continue;
+    // }
 
     // Száraz órák betöltése
     String historyFile = "/drylog_" + String(zoneId) + ".json";
@@ -105,6 +115,7 @@ void checkIntelligentDryCycleZones() {
     }
   }
 }
+
 
 void logMoistureForDryZones() {
   int today = currentDayOfYear();
