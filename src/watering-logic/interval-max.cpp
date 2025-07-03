@@ -50,8 +50,8 @@ void checkIntervalMaxZones() {
 
       if (moisture < maxMoisture) {
         Serial.printf("[INT-MAX] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
-        digitalWrite(relay, HIGH);
-        digitalWrite(RELAY_PUMP, HIGH);
+        digitalWrite(relay, LOW);
+        digitalWrite(RELAY_PUMP, LOW);
         activeZones.push_back({zoneId, relay, sensor, maxMoisture});
         cycle["lastWateredDay"] = today;
         updated = true;
@@ -60,9 +60,21 @@ void checkIntervalMaxZones() {
     }
 
     if (updated) {
+      // 🧹 Csak az aktuálisan locsolt ciklus maradjon
+      JsonArray newCycles = doc.createNestedArray("cycles");
+    
+      for (JsonObject c : cycles) {
+        if (c.containsKey("lastWateredDay") && c["lastWateredDay"] == today) {
+          newCycles.add(c);
+          break;
+        }
+      }
+    
       File outFile = LittleFS.open(filename, "w");
       serializeJson(doc, outFile);
       outFile.close();
     }
+    
+
   }
 }

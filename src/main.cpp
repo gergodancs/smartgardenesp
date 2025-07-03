@@ -11,6 +11,7 @@
 #include "routes/routes-manual-watering.h"
 #include "routes/routes-wifi.h"
 #include "routes/routes-zone.h"
+#include "routes/routes-config.h"
 
 
 const char* ssid = "SmartGarden";
@@ -57,13 +58,13 @@ void setup() {
   Serial.begin(115200);
 
   // Kimenetek beállítása
-  pinMode(RELAY_PUMP, OUTPUT); digitalWrite(RELAY_PUMP, LOW);
-  pinMode(RELAY_ZONE_1, OUTPUT); digitalWrite(RELAY_ZONE_1, LOW);
-  pinMode(RELAY_ZONE_2, OUTPUT); digitalWrite(RELAY_ZONE_2, LOW);
-  pinMode(RELAY_ZONE_3, OUTPUT); digitalWrite(RELAY_ZONE_3, LOW);
-  pinMode(RELAY_ZONE_4, OUTPUT); digitalWrite(RELAY_ZONE_4, LOW);
-  pinMode(RELAY_ZONE_5, OUTPUT); digitalWrite(RELAY_ZONE_5, LOW);
-  pinMode(RELAY_ZONE_6, OUTPUT); digitalWrite(RELAY_ZONE_6, LOW);
+  pinMode(RELAY_PUMP, OUTPUT); digitalWrite(RELAY_PUMP, HIGH);
+  pinMode(RELAY_ZONE_1, OUTPUT); digitalWrite(RELAY_ZONE_1, HIGH);
+  pinMode(RELAY_ZONE_2, OUTPUT); digitalWrite(RELAY_ZONE_2, HIGH);
+  pinMode(RELAY_ZONE_3, OUTPUT); digitalWrite(RELAY_ZONE_3, HIGH);
+  pinMode(RELAY_ZONE_4, OUTPUT); digitalWrite(RELAY_ZONE_4, HIGH);
+  pinMode(RELAY_ZONE_5, OUTPUT); digitalWrite(RELAY_ZONE_5, HIGH);
+  pinMode(RELAY_ZONE_6, OUTPUT); digitalWrite(RELAY_ZONE_6, HIGH);
 
   // Fájlrendszer elindítása
   if (!LittleFS.begin()) {
@@ -81,6 +82,22 @@ void setup() {
   registerZoneRoutes(server);
   registerWiFiRoutes(server);
   registerManualWateringRoutes(server);
+  registerConfigRoutes(server);
+
+  // GET /api/active-zones → pl. [2, 4]
+server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
+  DynamicJsonDocument doc(256);
+  JsonArray arr = doc.to<JsonArray>();
+  for (auto& z : activeZones) {
+    arr.add(z.zoneId);
+  }
+  String response;
+  serializeJson(doc, response);
+  request->send(200, "application/json", response);
+});
+
+
+
     
 
   server.begin();
@@ -108,7 +125,7 @@ void loop() {
       // ⏱️ interval-duration kezelés
       if (it->durationMillis > 0 && now - it->startTime >= it->durationMillis) {
         Serial.printf("⏹️ Zóna %d locsolás vége (idő letelt)\n", it->zoneId);
-        digitalWrite(it->relayPin, LOW);
+        digitalWrite(it->relayPin, HIGH);
         shouldRemove = true;
       }
 
@@ -123,7 +140,7 @@ void loop() {
         if (moisture >= it->maxMoisture) {
           Serial.printf("⏹️ Zóna %d locsolás vége – Nedvesség elérte a célt (%d%%)\n",
                         it->zoneId, moisture);
-          digitalWrite(it->relayPin, LOW);
+          digitalWrite(it->relayPin, HIGH);
           shouldRemove = true;
         }
       }
@@ -136,7 +153,7 @@ void loop() {
     }
 
     if (activeZones.empty()) {
-      digitalWrite(RELAY_PUMP, LOW);
+      digitalWrite(RELAY_PUMP, HIGH);
     }
 
     lastMoistureCheck = now;

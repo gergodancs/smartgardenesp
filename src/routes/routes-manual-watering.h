@@ -44,8 +44,8 @@ void registerManualWateringRoutes(AsyncWebServer& server) {
         Serial.printf("Zóna %d: szenzoros locsolás indul (nedvesség: %d%%)\n", zoneId, moisture);
       }
   
-      digitalWrite(relayPin, HIGH);
-      digitalWrite(RELAY_PUMP, HIGH);
+      digitalWrite(relayPin, LOW);
+      digitalWrite(RELAY_PUMP, LOW);
   
       activeZones.push_back({
         zoneId,
@@ -70,7 +70,7 @@ void registerManualWateringRoutes(AsyncWebServer& server) {
       activeZones.erase(
         std::remove_if(activeZones.begin(), activeZones.end(), [zoneId](WateringZone z){
           if (z.zoneId == zoneId) {
-            digitalWrite(z.relayPin, LOW);
+            digitalWrite(z.relayPin, HIGH);
             Serial.printf("Zóna %d locsolás leállítva\n", zoneId);
             return true;
           }
@@ -80,7 +80,7 @@ void registerManualWateringRoutes(AsyncWebServer& server) {
       );
   
       if (activeZones.empty()) {
-        digitalWrite(RELAY_PUMP, LOW);
+        digitalWrite(RELAY_PUMP, HIGH);
       }
   
       request->send(200, "application/json", "{\"status\":\"stopped\"}");

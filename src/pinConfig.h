@@ -4,13 +4,13 @@
 #define PIN_CONFIG_H
 
 // Relék (kimenetek)
-#define RELAY_PUMP     2
-#define RELAY_ZONE_1   4
-#define RELAY_ZONE_2   5
-#define RELAY_ZONE_3   12
-#define RELAY_ZONE_4   13
-#define RELAY_ZONE_5   14
-#define RELAY_ZONE_6   15
+#define RELAY_PUMP     16
+#define RELAY_ZONE_1   17
+#define RELAY_ZONE_2   18
+#define RELAY_ZONE_3   19
+#define RELAY_ZONE_4   21
+#define RELAY_ZONE_5   22
+#define RELAY_ZONE_6   23
 
 // Nedvességszenzorok (analóg bemenetek)
 #define SENSOR_ZONE_1  32

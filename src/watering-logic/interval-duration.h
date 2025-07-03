@@ -47,8 +47,8 @@ void checkIntervalDurationZones() {
       int relay = getRelayPin(zoneId);
       int sensor = getSensorPin(zoneId);
 
-      digitalWrite(relay, HIGH);
-      digitalWrite(RELAY_PUMP, HIGH);
+      digitalWrite(relay, LOW);
+      digitalWrite(RELAY_PUMP, LOW);
 
       WateringZone zone = {
         zoneId,

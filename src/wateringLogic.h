@@ -91,8 +91,8 @@ void checkIntelligentDryCycleZones() {
       Serial.printf("[INT-DRY] Zóna %d: %d száraz óra után locsolás indul\n", zoneId, dryHours);
       int relay = getRelayPin(zoneId);
       int sensor = getSensorPin(zoneId);
-      digitalWrite(relay, HIGH);
-      digitalWrite(RELAY_PUMP, HIGH);
+      digitalWrite(relay, LOW);
+      digitalWrite(RELAY_PUMP, LOW);
       activeZones.push_back({zoneId, relay, sensor, maxMoisture});
       
       // Locsolási nap mentése

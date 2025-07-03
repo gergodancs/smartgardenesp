@@ -58,8 +58,8 @@ void checkScheduledWatering() {
         int moisture = readSoilMoisture(getSensorPin(zoneId), zoneId);
         if (moisture < maxMoisture) {
           Serial.printf("[AUTO] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
-          digitalWrite(getRelayPin(zoneId), HIGH);
-          digitalWrite(RELAY_PUMP, HIGH);
+          digitalWrite(getRelayPin(zoneId), LOW);
+          digitalWrite(RELAY_PUMP, LOW);
           activeZones.push_back({zoneId, getRelayPin(zoneId), getSensorPin(zoneId), maxMoisture});
           break;
         }
