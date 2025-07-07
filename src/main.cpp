@@ -12,6 +12,7 @@
 #include "routes/routes-wifi.h"
 #include "routes/routes-zone.h"
 #include "routes/routes-config.h"
+#include "weather/weather.h"
 
 
 const char* ssid = "SmartGarden";
@@ -52,6 +53,9 @@ int readSoilMoisture(int analogPin, int zoneId) {
   return constrain(percent, 0, 100);
 }
 
+void checkWeatherLogicIfNeeded(unsigned long now);
+void checkSchedulesIfNeeded(unsigned long now);
+void updateActiveZones(unsigned long now);
 
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
@@ -96,68 +100,97 @@ server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
   request->send(200, "application/json", response);
 });
 
-
-
-    
-
   server.begin();
   Serial.println("Web szerver elindítva");
 }
 
 void loop() {
-  static unsigned long lastMoistureCheck = 0;
-  static unsigned long lastScheduleCheck = 0;
   unsigned long now = millis();
+  checkWeatherLogicIfNeeded(now);
+  checkSchedulesIfNeeded(now);
+  updateActiveZones(now);
+}
 
-  if (now - lastScheduleCheck > 60000) {
-    checkScheduledWatering();
-    checkIntervalMaxZones();
-    checkIntervalDurationZones();
-    checkIntelligentDryCycleZones();
-    logMoistureForDryZones();
-    lastScheduleCheck = now;
+
+void checkWeatherLogicIfNeeded(unsigned long now) {
+  static unsigned long lastWeatherCheck = 0;
+  if (now - lastWeatherCheck < 10 * 60 * 1000) return;
+
+  bool anyZoneUsesWeather = false;
+
+  for (int i = 1; i <= 6; ++i) {
+    String filename = "/zone" + String(i) + ".json";
+    if (!LittleFS.exists(filename)) continue;
+
+    File file = LittleFS.open(filename, "r");
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, file);
+    file.close();
+
+    if (doc.containsKey("weather") && doc["weather"]["enabled"] == true) {
+      anyZoneUsesWeather = true;
+      break;
+    }
   }
 
-  if (now - lastMoistureCheck > 5000) {
-    for (auto it = activeZones.begin(); it != activeZones.end(); ) {
-      bool shouldRemove = false;
+  if (anyZoneUsesWeather) {
+    Serial.println("🌤️ Weather logic active – fetching forecast...");
+    fetchWeatherForecast();
+  } else {
+    Serial.println("☁️ No zones use weather logic – skipping forecast.");
+  }
 
-      // ⏱️ interval-duration kezelés
-      if (it->durationMillis > 0 && now - it->startTime >= it->durationMillis) {
-        Serial.printf("⏹️ Zóna %d locsolás vége (idő letelt)\n", it->zoneId);
+  lastWeatherCheck = now;
+}
+
+void checkSchedulesIfNeeded(unsigned long now) {
+  static unsigned long lastScheduleCheck = 0;
+  if (now - lastScheduleCheck < 30000) return;
+
+  checkScheduledWatering();
+  checkIntervalMaxZones();
+  checkIntervalDurationZones();
+  checkIntelligentDryCycleZones();
+  logMoistureForDryZones();
+
+  lastScheduleCheck = now;
+}
+
+void updateActiveZones(unsigned long now) {
+  static unsigned long lastMoistureCheck = 0;
+  if (now - lastMoistureCheck < 5000) return;
+
+  for (auto it = activeZones.begin(); it != activeZones.end(); ) {
+    bool shouldRemove = false;
+
+    if (it->durationMillis > 0 && now - it->startTime >= it->durationMillis) {
+      Serial.printf("⏹️ Zóna %d locsolás vége (idő letelt)\n", it->zoneId);
+      digitalWrite(it->relayPin, HIGH);
+      shouldRemove = true;
+    } else if (it->durationMillis == 0) {
+      int moisture = readSoilMoisture(it->sensorPin, it->zoneId);
+      Serial.printf("🟢 Zóna %d aktív – Nedvesség: %d%% (Cél: %d%%)\n",
+                    it->zoneId, moisture, it->maxMoisture);
+
+      if (moisture >= it->maxMoisture) {
+        Serial.printf("⏹️ Zóna %d locsolás vége – Nedvesség elérte a célt (%d%%)\n",
+                      it->zoneId, moisture);
         digitalWrite(it->relayPin, HIGH);
         shouldRemove = true;
       }
-
-      // 💧 moisture-based ellenőrzés
-      else if (it->durationMillis == 0) {
-        int moisture = readSoilMoisture(it->sensorPin, it->zoneId);
-
-        // 🔎 extra log minden 5 másodpercben, ha moisture-alapú locsolás aktív
-        Serial.printf("🟢 Zóna %d aktív – Nedvesség: %d%% (Cél: %d%%)\n",
-                      it->zoneId, moisture, it->maxMoisture);
-
-        if (moisture >= it->maxMoisture) {
-          Serial.printf("⏹️ Zóna %d locsolás vége – Nedvesség elérte a célt (%d%%)\n",
-                        it->zoneId, moisture);
-          digitalWrite(it->relayPin, HIGH);
-          shouldRemove = true;
-        }
-      }
-
-      if (shouldRemove) {
-        it = activeZones.erase(it);
-      } else {
-        ++it;
-      }
     }
 
-    if (activeZones.empty()) {
-      digitalWrite(RELAY_PUMP, HIGH);
+    if (shouldRemove) {
+      it = activeZones.erase(it);
+    } else {
+      ++it;
     }
-
-    lastMoistureCheck = now;
   }
-}
 
+  if (activeZones.empty()) {
+    digitalWrite(RELAY_PUMP, HIGH);
+  }
+
+  lastMoistureCheck = now;
+}
 

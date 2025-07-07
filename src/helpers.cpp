@@ -1,6 +1,7 @@
 #include "helpers.h"
 #include "pinConfig.h"
 
+
 String getZoneFilename(int zoneId) {
   return "/zone_" + String(zoneId) + ".json";
 }
@@ -28,3 +29,7 @@ int getSensorPin(int zoneId) {
     default: return -1;
   }
 }
+
+// helpers.h vagy weather.cpp-ben
+
+

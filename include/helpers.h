@@ -12,4 +12,6 @@ int getRelayPin(int zoneId);
 // Szenzor pin egy adott zónához
 int getSensorPin(int zoneId);
 
+
+
 #endif

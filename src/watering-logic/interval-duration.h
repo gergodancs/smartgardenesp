@@ -8,7 +8,10 @@
 #include "../include/helpers.h"
 #include "common.h"
 
+extern int cachedRainChance;
+
 void checkIntervalDurationZones() {
+  int hour = currentHour();
   int today = currentDayOfYear();
   if (today < 0) return;
 
@@ -41,19 +44,26 @@ void checkIntervalDurationZones() {
       int cycleStart = date.tm_yday + 1;
       int daysSinceStart = today - cycleStart;
 
-      // Időablak-ellenőrzés
-      if (cycle.containsKey("startHour") && cycle.containsKey("endHour")) {
-        int startHour = cycle["startHour"];
-        int endHour = cycle["endHour"];
-        int now = currentHour();
-        if (!(now >= startHour && now < endHour)) {
-          Serial.printf("⏱️  Zóna %d ciklusa kihagyva: %d óra nincs az időablakban (%d–%d)\n", zoneId, now, startHour, endHour);
-          continue;
+      // ⏱️ Időablak ellenőrzés
+      if (!isWithinWateringWindow(cycle, hour, zoneId)) continue;
+
+      // ⏳ Általános kihagyási feltételek
+      if (daysSinceStart < 0 || intervalDays == 0 || durationMinutes == 0 || (today - lastDay < intervalDays)) continue;
+
+      // 🌦️ Weather logika
+      if (doc.containsKey("weather")) {
+        JsonObject weather = doc["weather"];
+        bool enabled = weather["enabled"] | false;
+        int threshold = weather["rainChanceThreshold"] | 0;
+        int forecastDays = weather["forecastDays"] | 1;
+
+        if (enabled && cachedRainChance >= threshold) {
+          Serial.printf("🌧️ Zóna %d kihagyva – %d%% esély esőre a következő %d napon\n", zoneId, cachedRainChance, forecastDays);
+          break; // nem locsolunk, kihagyjuk
         }
       }
 
-      if (daysSinceStart < 0 || intervalDays == 0 || durationMinutes == 0 || (today - lastDay < intervalDays)) continue;
-
+      // 💧 Normál időalapú locsolás
       Serial.printf("[INT-DURATION] Zóna %d locsolás indul (%d perc)\n", zoneId, durationMinutes);
       int relay = getRelayPin(zoneId);
       int sensor = getSensorPin(zoneId);
@@ -65,7 +75,7 @@ void checkIntervalDurationZones() {
         zoneId,
         relay,
         sensor,
-        999,
+        999, // nem használunk moisture-t
         millis(),
         (unsigned long)durationMinutes * 60000
       };

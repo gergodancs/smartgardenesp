@@ -16,7 +16,7 @@
 #define SENSOR_ZONE_1  32
 #define SENSOR_ZONE_2  33
 #define SENSOR_ZONE_3  34
-#define SENSOR_ZONE_4  35
+#define SENSOR_ZONE_4  35 
 #define SENSOR_ZONE_5  36
 #define SENSOR_ZONE_6  39
 

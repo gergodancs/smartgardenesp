@@ -4,12 +4,17 @@
 #include "../include/helpers.h"
 #include "../pinConfig.h"
 #include "common.h"
+#include "../weather/rain-recheck.h" 
+#include "weather/weather.h"
 
 #include <vector>
 
 int readSoilMoisture(int analogPin, int zoneId);
 
+extern int cachedRainChance;
+
 void checkIntervalMaxZones() {
+  int hour = currentHour();
   int today = currentDayOfYear();
   if (today < 0) return;
 
@@ -48,17 +53,17 @@ void checkIntervalMaxZones() {
       int relay = getRelayPin(zoneId);
       int moisture = readSoilMoisture(sensor, zoneId);
 
-      if (cycle.containsKey("startHour") && cycle.containsKey("endHour")) {
-        int startHour = cycle["startHour"];
-        int endHour = cycle["endHour"];
-        int now = currentHour();  // Használhatod a helper függvényedet is
-        if (!(now >= startHour && now < endHour)) {
-          Serial.printf("⏱️  Zóna %d ciklusa kihagyva: %d óra nincs az időablakban (%d–%d)\n", zoneId, now, startHour, endHour);
-          continue;
-        }
-      }
-      
+      // ⏱️ időablak
+      if (!isWithinWateringWindow(cycle, hour, zoneId)) continue;
 
+     // 🌦️ Weather logic
+     if (doc.containsKey("weather") && handleRainForecast(doc["weather"], zoneId, moisture, maxMoisture, sensor, relay)) {
+      cycle["lastWateredDay"] = today;
+      updated = true;
+      break;
+    }
+    
+      // 💧 ha nedvesség nem elég
       if (moisture < maxMoisture) {
         Serial.printf("[INT-MAX] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
         digitalWrite(relay, LOW);
@@ -71,21 +76,18 @@ void checkIntervalMaxZones() {
     }
 
     if (updated) {
-      // 🧹 Csak az aktuálisan locsolt ciklus maradjon
+      // csak az aznapi locsolási ciklusokat mentjük újra
       JsonArray newCycles = doc.createNestedArray("cycles");
-    
       for (JsonObject c : cycles) {
         if (c.containsKey("lastWateredDay") && c["lastWateredDay"] == today) {
           newCycles.add(c);
           break;
         }
       }
-    
+
       File outFile = LittleFS.open(filename, "w");
       serializeJson(doc, outFile);
       outFile.close();
     }
-    
-
   }
 }
