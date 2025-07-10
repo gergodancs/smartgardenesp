@@ -12,23 +12,31 @@
 
 
 int cachedRainChance = 0;
+WeatherDay forecastData[3];
 
 String getLocationString() {
-    if (!LittleFS.exists("/location.json")) return "";
-  
-    File file = LittleFS.open("/location.json", "r");
-    DynamicJsonDocument doc(256);
-    deserializeJson(doc, file);
-    file.close();
-  
-    String city = doc["city"] | "";
-    String country = doc["country"] | "";
-  
-    if (city.length() == 0) return "";
-    if (country.length() == 0) return city;
-  
-    return city + "," + country;
+  if (!LittleFS.exists("/location.json")) {
+    return "vienna,austria";  // alapértelmezett
   }
+
+  File file = LittleFS.open("/location.json", "r");
+  DynamicJsonDocument doc(256);
+  DeserializationError err = deserializeJson(doc, file);
+  file.close();
+
+  if (err) {
+    return "vienna,austria";  // ha hiba volt a fájlban
+  }
+
+  String city = doc["city"] | "vienna";
+  String country = doc["country"] | "austria";
+
+  if (city.length() == 0) return "vienna,austria";
+  if (country.length() == 0) return city;
+
+  return city + "," + country;
+}
+
 
   void fetchWeatherForecast() {
     String location = getLocationString();
@@ -50,8 +58,24 @@ String getLocationString() {
       JsonArray forecastDays = doc["forecast"]["forecastday"];
       int maxChance = 0;
   
+      int i = 0;
       for (JsonObject day : forecastDays) {
         int chance = day["day"]["daily_chance_of_rain"] | 0;
+        const char* date = day["date"];  // pl. "2025-07-08"
+  
+        // dátumból nap neve (rövidítve)
+        struct tm timeinfo = {};
+        strptime(date, "%Y-%m-%d", &timeinfo);
+        mktime(&timeinfo); // hogy beállítsa a tm_wday-t
+  
+        const char* daysHu[] = {"V", "H", "K", "Sze", "Cs", "P", "Szo"};
+        String label = daysHu[timeinfo.tm_wday];
+  
+        if (i < 3) {
+          forecastData[i] = {label, chance};
+          ++i;
+        }
+  
         if (chance > maxChance) {
           maxChance = chance;
         }
@@ -65,6 +89,7 @@ String getLocationString() {
   
     http.end();
   }
+  
 
   bool handleRainForecast(JsonObject weather, int zoneId, int moisture, int maxMoisture, int sensorPin, int relayPin) {
     bool enabled = weather["enabled"] | false;

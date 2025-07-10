@@ -4,6 +4,7 @@
 #include "../include/helpers.h"
 #include "../pinConfig.h"
 #include "../watering-logic/common.h"
+#include "log-helper.h"
 
 std::vector<SkippedZone> rainSkippedZones;
 const char* RAIN_SKIPPED_FILE = "/rain_skipped.json";
@@ -70,6 +71,7 @@ void checkRainRecheckZones() {
       digitalWrite(RELAY_PUMP, LOW);
       activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
       it = rainSkippedZones.erase(it);
+      appendToLog("Zóna " + String(zoneId) + ": eső utáni újraellenőrzés – nem lett elég nedves (" + String(moisture) + "%) → locsolás indítva");
     } else {
       ++it;
     }

@@ -14,6 +14,7 @@
 #include "watering-logic/interval-duration.h"
 #include "weather/rain-recheck.h"
 #include "weather/weather.h"
+#include "log-helper.h"
 
 extern int cachedRainChance;
 extern bool alreadyCheckedToday;
@@ -51,6 +52,7 @@ void checkIntelligentDryCycleZones() {
     file.close();
 
     if (doc["mode"] != "intelligent-dry-cycle") continue;
+    if (doc["phase"] != "dry-counting") continue;
 
     int dryMin = doc["dryRangeMin"] | 25;
     int dryMax = doc["dryRangeMax"] | 40;
@@ -59,8 +61,11 @@ void checkIntelligentDryCycleZones() {
     int maxMoisture = doc["maxMoisture"] | 65;
     int lastDay = doc["lastWateredDay"] | 0;
 
-    if ((today - lastDay) < dryCycleDays) continue;
+    int wetMin = doc["wetMin"] | -1;
+    int wetMax = doc["wetMax"] | -1;
+    int wetHoldHours = doc["wetHoldHours"] | -1;
 
+    if ((today - lastDay) < dryCycleDays) continue;
     if (!isWithinWateringWindowNoCycle(doc, hour, zoneId)) continue;
 
     int sensor = getSensorPin(zoneId);
@@ -84,8 +89,26 @@ void checkIntelligentDryCycleZones() {
       deserializeJson(hist, hFile);
       hFile.close();
 
-      int dryHours = 0;
       JsonArray hours = hist["hours"];
+
+      // 🌊 Nedves zóna validáció
+      if (wetMin >= 0 && wetMax >= 0 && wetHoldHours > 0) {
+        int wetHours = 0;
+        for (JsonObject obj : hours) {
+          int d = obj["day"];
+          int m = obj["moisture"];
+          if (d > lastDay && m >= wetMin && m <= wetMax) {
+            wetHours++;
+          }
+        }
+        if (wetHours < wetHoldHours) {
+          Serial.printf("[INT-DRY] Zóna %d: csak %d nedves óra – száradás még nem indul\n", zoneId, wetHours);
+          continue; // még nem kezdhető el a száraz ciklus
+        }
+      }
+
+      // ☀️ Száraz zóna validáció
+      int dryHours = 0;
       for (JsonObject obj : hours) {
         int d = obj["day"];
         int h = obj["hour"];
@@ -101,13 +124,14 @@ void checkIntelligentDryCycleZones() {
         digitalWrite(RELAY_PUMP, LOW);
         activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
         doc["lastWateredDay"] = today;
+        doc["phase"] = "wet-hold";
+        appendToLog("Zóna " + String(zoneId) + ": locsolás indítva " + String(dryHours) + " száraz óra után → új ciklus wet-hold");
         updated = true;
       } else {
         Serial.printf("[INT-DRY] Zóna %d: csak %d száraz óra – nincs locsolás\n", zoneId, dryHours);
       }
     }
 
-    // 💾 Mentés, ha frissült a lastWateredDay
     if (updated) {
       File outFile = LittleFS.open(filename, "w");
       serializeJson(doc, outFile);
@@ -115,6 +139,7 @@ void checkIntelligentDryCycleZones() {
     }
   }
 }
+
 
 
 
@@ -158,6 +183,73 @@ void logMoistureForDryZones() {
     File f = LittleFS.open(histFile, "w");
     serializeJson(hist, f);
     f.close();
+  }
+}
+
+void checkWetHoldPhaseZones() {
+  int today = currentDayOfYear();
+  int hour = currentHour();
+  if (today < 0 || hour < 0) return;
+
+  for (int zoneId = 1; zoneId <= 6; ++zoneId) {
+    String filename = getZoneFilename(zoneId);
+    if (!LittleFS.exists(filename)) continue;
+
+    File file = LittleFS.open(filename, "r");
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, file);
+    file.close();
+
+    if (doc["mode"] != "intelligent-dry-cycle") continue;
+    if (doc["phase"] != "wet-hold") continue;
+
+    int wetMin = doc["wetMin"] | -1;
+    int wetMax = doc["wetMax"] | -1;
+    int wetHoldHours = doc["wetHoldHours"] | -1;
+    int lastDay = doc["lastWateredDay"] | -1;
+    if (wetMin < 0 || wetMax < 0 || wetHoldHours < 0 || lastDay < 0) continue;
+
+    // Napló beolvasás
+    String historyFile = "/drylog_" + String(zoneId) + ".json";
+    if (!LittleFS.exists(historyFile)) continue;
+
+    File hFile = LittleFS.open(historyFile, "r");
+    DynamicJsonDocument hist(4096);
+    deserializeJson(hist, hFile);
+    hFile.close();
+
+    JsonArray hours = hist["hours"];
+    int wetHours = 0;
+
+    for (JsonObject obj : hours) {
+      int d = obj["day"];
+      int m = obj["moisture"];
+      if (d >= lastDay && m >= wetMin && m <= wetMax) {
+        wetHours++;
+      }
+    }
+
+    if (wetHours >= wetHoldHours) {
+      Serial.printf("[WET-HOLD] Zóna %d: megvolt %d nedves óra, fázis vált -> dry-counting\n", zoneId, wetHours);
+      appendToLog("Zóna " + String(zoneId) + ": fázisváltás wet-hold → dry-counting (" + String(wetHours) + " nedves óra)");
+      doc["phase"] = "dry-counting";
+    } else {
+      int moisture = readSoilMoisture(getSensorPin(zoneId), zoneId);
+      if (moisture < wetMin) {
+        Serial.printf("[WET-HOLD] Zóna %d: túl száraz (%d), újraöntözés\n", zoneId, moisture);
+        appendToLog("Zóna " + String(zoneId) + ": újraöntözés wet-hold fázisban (nedvesség: " + String(moisture) + "%)");
+        int relay = getRelayPin(zoneId);
+        digitalWrite(relay, LOW);
+        digitalWrite(RELAY_PUMP, LOW);
+        activeZones.push_back(WateringZone{zoneId, relay, getSensorPin(zoneId), wetMax});
+      } else {
+        Serial.printf("[WET-HOLD] Zóna %d: nedves állapot rendben, várakozás...\n", zoneId);
+      }
+    }
+
+    File outFile = LittleFS.open(filename, "w");
+    serializeJson(doc, outFile);
+    outFile.close();
   }
 }
 

@@ -19,6 +19,8 @@ void registerZoneRoutes(AsyncWebServer& server) {
     String type = request->getParam("type")->value(); // "dry" vagy "wet"
     int sensorPin = getSensorPin(zoneId);
     int value = analogRead(sensorPin);
+    Serial.printf("📏 Kalibráció: Zóna %d – %s érték olvasva: %d\n", zoneId, type.c_str(), value);
+ 
 
     String filename = getZoneFilename(zoneId);
     DynamicJsonDocument doc(1024);
@@ -106,46 +108,58 @@ void registerZoneRoutes(AsyncWebServer& server) {
   });
 
   // 💾 Zóna konfiguráció mentése (POST /api/zone-config)
-  server.on("/api/zone-config", HTTP_POST, [](AsyncWebServerRequest *request){
-    request->send(200, "application/json", "{\"status\":\"ok\"}");
-  }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-    Serial.println("➡️ POST /api/zone-config hívás érkezett");
+server.on("/api/zone-config", HTTP_POST, [](AsyncWebServerRequest *request){
+  request->send(200, "application/json", "{\"status\":\"ok\"}");
+}, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+  Serial.println("➡️ POST /api/zone-config hívás érkezett");
 
-    DynamicJsonDocument doc(2048);
-    DeserializationError error = deserializeJson(doc, data);
+  DynamicJsonDocument newDoc(2048);
+  DeserializationError error = deserializeJson(newDoc, data);
+  if (error) {
+    Serial.print("[HIBA] JSON feldolgozási hiba: ");
+    Serial.println(error.c_str());
+    request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+    return;
+  }
 
-    if (error) {
-      Serial.print("[HIBA] JSON feldolgozási hiba: ");
-      Serial.println(error.c_str());
-      request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-      return;
-    }
+  serializeJsonPretty(newDoc, Serial);
+  Serial.println();
 
-    serializeJsonPretty(doc, Serial);
-    Serial.println();
+  if (!newDoc.containsKey("zoneId")) {
+    Serial.println("[HIBA] Hiányzik a zoneId kulcs!");
+    request->send(400, "application/json", "{\"error\":\"Missing zoneId\"}");
+    return;
+  }
 
-    if (!doc.containsKey("zoneId")) {
-      Serial.println("[HIBA] Hiányzik a zoneId kulcs!");
-      request->send(400, "application/json", "{\"error\":\"Missing zoneId\"}");
-      return;
-    }
+  int zoneId = newDoc["zoneId"];
+  String filename = getZoneFilename(zoneId);
+  Serial.printf("📝 Mentés fájlba: %s\n", filename.c_str());
 
-    int zoneId = doc["zoneId"];
-    String filename = getZoneFilename(zoneId);
-    Serial.printf("📝 Mentés fájlba: %s\n", filename.c_str());
+  // 1️⃣ Meglévő konfiguráció betöltése (ha van)
+  DynamicJsonDocument merged(2048);
+  if (LittleFS.exists(filename)) {
+    File oldFile = LittleFS.open(filename, "r");
+    deserializeJson(merged, oldFile);
+    oldFile.close();
+  }
 
-    File file = LittleFS.open(filename, "w");
-    if (!file) {
-      Serial.println("[HIBA] Nem sikerült megnyitni a fájlt írásra.");
-      request->send(500, "application/json", "{\"error\":\"Cannot save config\"}");
-      return;
-    }
+  // 2️⃣ Új kulcsok beolvasása és felülírás
+  for (JsonPair kv : newDoc.as<JsonObject>()) {
+    merged[kv.key()] = kv.value();
+  }
 
-    serializeJson(doc, file);
-    file.close();
-    Serial.println("✅ Fájl mentése sikeres.");
-    request->send(200, "application/json", "{\"status\":\"saved\"}");
-  });
-}
+  // 3️⃣ Fájlba írás
+  File file = LittleFS.open(filename, "w");
+  if (!file) {
+    Serial.println("[HIBA] Nem sikerült megnyitni a fájlt írásra.");
+    request->send(500, "application/json", "{\"error\":\"Cannot save config\"}");
+    return;
+  }
+
+  serializeJson(merged, file);
+  file.close();
+  Serial.println("✅ Fájl mentése sikeres.");
+  request->send(200, "application/json", "{\"status\":\"saved\"}");
+});
 
 #endif

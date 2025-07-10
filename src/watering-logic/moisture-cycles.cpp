@@ -48,38 +48,49 @@ void checkScheduledWatering() {
       if (!isWithinWateringWindow(cycle, hour, zoneId)) continue;
 
       // 📅 nap ellenőrzés
-      struct tm date = {0};
-      date.tm_year = 2024 - 1900;
-      date.tm_mon = startMonth - 1;
-      date.tm_mday = startDay;
-      mktime(&date);
-      int cycleStart = date.tm_yday + 1;
-      int daysSinceStart = today - cycleStart;
-      if (daysSinceStart < 0 || (dryCycle > 0 && daysSinceStart % dryCycle != 0)) continue;
+struct tm date = {0};
+date.tm_year = 2024 - 1900;
+date.tm_mon = startMonth - 1;
+date.tm_mday = startDay;
+mktime(&date);
+int cycleStart = date.tm_yday + 1;
+int daysSinceStart = today - cycleStart;
+if (daysSinceStart < 0) continue;  // Csak akkor számoljuk, ha már elindult a ciklus
+
 
       // 🌱 nedvesség
-      int sensor = getSensorPin(zoneId);
-      int relay = getRelayPin(zoneId);
-      int moisture = readSoilMoisture(sensor, zoneId);
+int sensor = getSensorPin(zoneId);
+int relay = getRelayPin(zoneId);
+int moisture = readSoilMoisture(sensor, zoneId);
 
-      // 🌦️ Weather logic
-      if (doc.containsKey("weather") &&
-          handleRainForecast(doc["weather"], zoneId, moisture, maxMoisture, sensor, relay)) {
-        cycle["lastWateredDay"] = today;
-        updated = true;
-        break;
-      }
+// ⏱️ Ellenőrizd, mikor volt utoljára locsolva
+time_t now = time(nullptr);
+time_t lastWatered = doc["lastWateredTime"] | 0;
+int dryCycleHours = dryCycle;
 
-      // 💧 normál locsolás
-      if (moisture < maxMoisture) {
-        Serial.printf("[MOISTURE] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
-        digitalWrite(relay, LOW);
-        digitalWrite(RELAY_PUMP, LOW);
-        activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
-        cycle["lastWateredDay"] = today;  // ÚJ
-        updated = true;                   // ÚJ
-        break;
-      }
+bool shouldWater = (moisture < maxMoisture) &&
+                   (dryCycleHours == 0 || now - lastWatered >= dryCycleHours * 3600);
+
+// 🌦️ Weather logic
+if (shouldWater &&
+    doc.containsKey("weather") &&
+    handleRainForecast(doc["weather"], zoneId, moisture, maxMoisture, sensor, relay)) {
+  doc["lastWateredTime"] = now;
+  updated = true;
+  break;
+}
+
+// 💧 normál locsolás
+if (shouldWater) {
+  Serial.printf("[MOISTURE] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
+  digitalWrite(relay, LOW);
+  digitalWrite(RELAY_PUMP, LOW);
+  activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
+  doc["lastWateredTime"] = now;
+  updated = true;
+  break;
+}
+
     }
 
     // 🔄 Mentés, ha történt locsolás

@@ -2,6 +2,25 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "wifiManager.h"
+#include <vector>
+#include <Arduino.h>
+
+
+std::vector<String> scannedSSIDs; // Globálisan elérhető lista
+
+void preScanNetworks() {
+  Serial.println("📡 Előzetes WiFi scan indul...");
+
+  WiFi.mode(WIFI_STA); // ideiglenesen STA only
+  delay(100);          // adjunk kis időt
+  int n = WiFi.scanNetworks();
+  Serial.printf("🔍 %d hálózat előre feltérképezve\n", n);
+  for (int i = 0; i < n; ++i) {
+    scannedSSIDs.push_back(WiFi.SSID(i));
+  }
+
+  WiFi.mode(WIFI_AP_STA); // vissza AP + STA módra
+}
 
 void setupWiFi() {
   WiFi.mode(WIFI_AP_STA);
@@ -41,6 +60,7 @@ void setupWiFi() {
     }
   } else {
     Serial.println("ℹ️ Nincs elmentett WiFi beállítás (wifi.json).");
+    
   }
 
   if (staConnected) {
@@ -61,18 +81,22 @@ void setupWiFi() {
 
 
 void handleWiFiScanRequest(AsyncWebServerRequest *request) {
-  int n = WiFi.scanNetworks();
+  Serial.println("📡 WiFi scan adatok küldése...");
+
   DynamicJsonDocument doc(1024);
   JsonArray arr = doc.to<JsonArray>();
 
-  for (int i = 0; i < n; i++) {
-    arr.add(WiFi.SSID(i));
+  for (auto& ssid : scannedSSIDs) {
+    arr.add(ssid);
   }
 
   String response;
   serializeJson(doc, response);
   request->send(200, "application/json", response);
 }
+
+
+
 
 void handleWiFiConnectRequest(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
   DynamicJsonDocument doc(512);

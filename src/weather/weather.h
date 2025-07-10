@@ -1,5 +1,16 @@
 // weather.h
 #pragma once
+#include <ArduinoJson.h>
+
 void fetchWeatherForecast();
 bool handleRainForecast(JsonObject weather, int zoneId, int moisture, int maxMoisture, int sensorPin, int relayPin);
-extern int cachedRainChance; // pl. 0–100, vagy több napos tömb ha bonyolítod
+
+extern int cachedRainChance;
+
+// UI-hoz szükséges előrejelzések
+struct WeatherDay {
+  String label;
+  int rainChance;
+};
+
+extern WeatherDay forecastData[3];

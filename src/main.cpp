@@ -13,7 +13,7 @@
 #include "routes/routes-zone.h"
 #include "routes/routes-config.h"
 #include "weather/weather.h"
-
+#include "log-helper.h"
 
 const char* ssid = "SmartGarden";
 const char* password = "12345678";
@@ -56,6 +56,7 @@ int readSoilMoisture(int analogPin, int zoneId) {
 void checkWeatherLogicIfNeeded(unsigned long now);
 void checkSchedulesIfNeeded(unsigned long now);
 void updateActiveZones(unsigned long now);
+void logLiveSensorData(unsigned long);
 
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
@@ -79,6 +80,7 @@ void setup() {
 
   // Statikus fájlok kiszolgálása (React UI)
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  server.serveStatic("/log.txt", LittleFS, "/log.txt");
 
   // Wi-Fi indítása
   setupWiFi();
@@ -87,6 +89,21 @@ void setup() {
   registerWiFiRoutes(server);
   registerManualWateringRoutes(server);
   registerConfigRoutes(server);
+
+  server.on("/api/weather-forecast", HTTP_GET, [](AsyncWebServerRequest *request){
+    fetchWeatherForecast();
+    DynamicJsonDocument doc(256);
+    JsonArray arr = doc.to<JsonArray>();
+    for (int i = 0; i < 3; ++i) {
+      JsonObject obj = arr.createNestedObject();
+      obj["label"] = forecastData[i].label;
+      obj["rainChance"] = forecastData[i].rainChance;
+    }
+    String json;
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
+  
 
   // GET /api/active-zones → pl. [2, 4]
 server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -102,6 +119,18 @@ server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
 
   server.begin();
   Serial.println("Web szerver elindítva");
+
+  delay(3000);  // adj időt a rádiónak
+
+Serial.println("🔍 WiFi hálózatok keresése...");
+int n = WiFi.scanNetworks();
+Serial.printf("📶 %d hálózat találva:\n", n);
+for (int i = 0; i < n; ++i) {
+  Serial.printf("  %s (%d dBm)\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
+}
+
+preScanNetworks();
+
 }
 
 void loop() {
@@ -109,8 +138,28 @@ void loop() {
   checkWeatherLogicIfNeeded(now);
   checkSchedulesIfNeeded(now);
   updateActiveZones(now);
+
+  logLiveSensorData(now);
+  
 }
 
+void logLiveSensorData(unsigned long now) {
+  static unsigned long lastSensorLog = 0;
+  if (now - lastSensorLog < 10000) return;
+
+  Serial.println("📡 Élő szenzorértékek:");
+  for (int i = 1; i <= 6; ++i) {
+    int pin = getSensorPin(i);
+    int moisture = readSoilMoisture(pin, i);
+    if (moisture >= 0) {
+      Serial.printf("  🌱 Zóna %d – %d%%\n", i, moisture);
+    } else {
+      Serial.printf("  ⚠️ Zóna %d – nincs kalibrált szenzor\n", i);
+    }
+  }
+
+  lastSensorLog = now;
+}
 
 void checkWeatherLogicIfNeeded(unsigned long now) {
   static unsigned long lastWeatherCheck = 0;
@@ -150,6 +199,7 @@ void checkSchedulesIfNeeded(unsigned long now) {
   checkScheduledWatering();
   checkIntervalMaxZones();
   checkIntervalDurationZones();
+  checkWetHoldPhaseZones();
   checkIntelligentDryCycleZones();
   logMoistureForDryZones();
 
