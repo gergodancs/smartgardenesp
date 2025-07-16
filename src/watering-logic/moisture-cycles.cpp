@@ -68,27 +68,30 @@ time_t now = time(nullptr);
 time_t lastWatered = doc["lastWateredTime"] | 0;
 int dryCycleHours = dryCycle;
 
-bool shouldWater = (moisture < maxMoisture) &&
-                   (dryCycleHours == 0 || now - lastWatered >= dryCycleHours * 3600);
+bool dryCycleExpired = (dryCycleHours == 0 || now - lastWatered >= dryCycleHours * 3600);
+bool tooDry = (moisture < minMoisture);
 
-// 🌦️ Weather logic
-if (shouldWater &&
-    doc.containsKey("weather") &&
-    handleRainForecast(doc["weather"], zoneId, moisture, maxMoisture, sensor, relay)) {
-  doc["lastWateredTime"] = now;
-  updated = true;
-  break;
-}
+if (dryCycleExpired) {
+  if (tooDry) {
+    // 🌦️ Weather logic
+    if (doc.containsKey("weather") &&
+        handleRainForecast(doc["weather"], zoneId, moisture, maxMoisture, sensor, relay)) {
+      doc["lastWateredTime"] = now;
+      updated = true;
+      break;
+    }
 
-// 💧 normál locsolás
-if (shouldWater) {
-  Serial.printf("[MOISTURE] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
-  digitalWrite(relay, LOW);
-  digitalWrite(RELAY_PUMP, LOW);
-  activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
-  doc["lastWateredTime"] = now;
-  updated = true;
-  break;
+    // 💧 normál locsolás
+    Serial.printf("[MOISTURE] Zóna %d locsolás indul (%d%% < %d%%)\n", zoneId, moisture, maxMoisture);
+    digitalWrite(relay, LOW);
+    digitalWrite(RELAY_PUMP, LOW);
+    activeZones.push_back(WateringZone{zoneId, relay, sensor, maxMoisture});
+    doc["lastWateredTime"] = now;
+    updated = true;
+    break;
+  } else {
+    Serial.printf("[MOISTURE] Zóna %d – száraz ciklus lejárt, de a nedvesség (%d%%) még elegendő\n", zoneId, moisture);
+  }
 }
 
     }

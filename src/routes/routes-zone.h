@@ -161,5 +161,5 @@ server.on("/api/zone-config", HTTP_POST, [](AsyncWebServerRequest *request){
   Serial.println("✅ Fájl mentése sikeres.");
   request->send(200, "application/json", "{\"status\":\"saved\"}");
 });
-
+}
 #endif

@@ -3,7 +3,6 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
-#include <time.h>
 
 inline void appendToLog(const String &message) {
   File file = LittleFS.open("/log.txt", "a");
@@ -12,17 +11,7 @@ inline void appendToLog(const String &message) {
     return;
   }
 
-  struct tm timeinfo;
-  String prefix = "";
-  if (getLocalTime(&timeinfo)) {
-    char buffer[32];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &timeinfo);
-    prefix = String(buffer);
-  } else {
-    prefix = "UNKNOWN TIME";
-  }
-
-  file.printf("[%s] %s\n", prefix.c_str(), message.c_str());
+  file.println(message);
   file.close();
 }
 #endif

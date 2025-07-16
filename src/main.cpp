@@ -79,16 +79,17 @@ void setup() {
   Serial.println("LittleFS mount OK");
 
   // Statikus fájlok kiszolgálása (React UI)
-  server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  //server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
   server.serveStatic("/log.txt", LittleFS, "/log.txt");
 
   // Wi-Fi indítása
-  setupWiFi();
-
+  //setupWiFi();
+  Serial.println("wifi indult");
   registerZoneRoutes(server);
   registerWiFiRoutes(server);
   registerManualWateringRoutes(server);
   registerConfigRoutes(server);
+  Serial.println("routok indult");
 
   server.on("/api/weather-forecast", HTTP_GET, [](AsyncWebServerRequest *request){
     fetchWeatherForecast();
@@ -120,26 +121,26 @@ server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
   server.begin();
   Serial.println("Web szerver elindítva");
 
-  delay(3000);  // adj időt a rádiónak
+  //delay(3000);  // adj időt a rádiónak
 
-Serial.println("🔍 WiFi hálózatok keresése...");
+/* Serial.println("🔍 WiFi hálózatok keresése...");
 int n = WiFi.scanNetworks();
 Serial.printf("📶 %d hálózat találva:\n", n);
 for (int i = 0; i < n; ++i) {
   Serial.printf("  %s (%d dBm)\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
-}
+} */
 
-preScanNetworks();
+//preScanNetworks();
 
 }
 
 void loop() {
   unsigned long now = millis();
-  checkWeatherLogicIfNeeded(now);
+/*   checkWeatherLogicIfNeeded(now);
   checkSchedulesIfNeeded(now);
   updateActiveZones(now);
 
-  logLiveSensorData(now);
+  logLiveSensorData(now); */
   
 }
 

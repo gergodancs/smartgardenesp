@@ -2,25 +2,6 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "wifiManager.h"
-#include <vector>
-#include <Arduino.h>
-
-
-std::vector<String> scannedSSIDs; // Globálisan elérhető lista
-
-void preScanNetworks() {
-  Serial.println("📡 Előzetes WiFi scan indul...");
-
-  WiFi.mode(WIFI_STA); // ideiglenesen STA only
-  delay(100);          // adjunk kis időt
-  int n = WiFi.scanNetworks();
-  Serial.printf("🔍 %d hálózat előre feltérképezve\n", n);
-  for (int i = 0; i < n; ++i) {
-    scannedSSIDs.push_back(WiFi.SSID(i));
-  }
-
-  WiFi.mode(WIFI_AP_STA); // vissza AP + STA módra
-}
 
 void setupWiFi() {
   WiFi.mode(WIFI_AP_STA);
@@ -30,8 +11,6 @@ void setupWiFi() {
   WiFi.softAP(apSsid, apPassword);
   Serial.print("🌱 AP elérhető: ");
   Serial.println(WiFi.softAPIP());
-
-  bool staConnected = false;
 
   if (LittleFS.exists("/wifi.json")) {
     File file = LittleFS.open("/wifi.json", "r");
@@ -54,49 +33,34 @@ void setupWiFi() {
         Serial.print(".");
       }
 
-      staConnected = WiFi.status() == WL_CONNECTED;
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.println();
+        Serial.print("✅ STA IP-cím: ");
+        Serial.println(WiFi.localIP());
+      } else {
+        Serial.println("\n⚠️ Nem sikerült csatlakozni a ház WiFi-hez.");
+      }
     } else {
       Serial.println("⚠️ Hiba a wifi.json fájl beolvasásakor.");
     }
   } else {
     Serial.println("ℹ️ Nincs elmentett WiFi beállítás (wifi.json).");
-    
-  }
-
-  if (staConnected) {
-    Serial.println();
-    Serial.print("✅ STA IP-cím: ");
-    Serial.println(WiFi.localIP());
-
-    Serial.print("📶 Csatlakozott hálózat: ");
-    Serial.println(WiFi.SSID());
-
-    Serial.print("📡 Jelerősség (RSSI): ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
-  } else {
-    Serial.println("⚠️ Nem sikerült csatlakozni STA módban.");
   }
 }
 
-
 void handleWiFiScanRequest(AsyncWebServerRequest *request) {
-  Serial.println("📡 WiFi scan adatok küldése...");
-
+  int n = WiFi.scanNetworks();
   DynamicJsonDocument doc(1024);
   JsonArray arr = doc.to<JsonArray>();
 
-  for (auto& ssid : scannedSSIDs) {
-    arr.add(ssid);
+  for (int i = 0; i < n; i++) {
+    arr.add(WiFi.SSID(i));
   }
 
   String response;
   serializeJson(doc, response);
   request->send(200, "application/json", response);
 }
-
-
-
 
 void handleWiFiConnectRequest(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
   DynamicJsonDocument doc(512);
