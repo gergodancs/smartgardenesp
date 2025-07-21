@@ -38,58 +38,72 @@ String getLocationString() {
 }
 
 
-  void fetchWeatherForecast() {
-    String location = getLocationString();
-    if (location == "") {
-      Serial.println("⚠️ Nincs beállítva lokáció, nem lehet időjárást lekérni.");
+ void fetchWeatherForecast() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Nincs internetkapcsolat, nem lehet időjárást lekérni.");
+    return;
+  }
+
+  String location = getLocationString();
+  if (location == "") {
+    Serial.println("⚠️ Nincs beállítva lokáció, nem lehet időjárást lekérni.");
+    return;
+  }
+
+  String url = "http://api.weatherapi.com/v1/forecast.json?key=2acf3b0415d041fca8a132314211412&q=" + location + "&days=3";
+  HTTPClient http;
+
+  http.setTimeout(5000);  // 5 másodperces timeout
+  if (!http.begin(url)) {
+    Serial.println("❌ HTTPClient begin() sikertelen – lehet, hogy a DNS nem működik.");
+    return;
+  }
+
+  int httpCode = http.GET();
+  if (httpCode == 200) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(8192);
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      Serial.printf("❌ JSON parsing hiba: %s\n", error.c_str());
+      http.end();
       return;
     }
-  
-    String url = "http://api.weatherapi.com/v1/forecast.json?key=2acf3b0415d041fca8a132314211412&q=" + location + "&days=3";
-    HTTPClient http;
-    http.begin(url);
-  
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-      String payload = http.getString();
-      DynamicJsonDocument doc(8192);
-      deserializeJson(doc, payload);
-  
-      JsonArray forecastDays = doc["forecast"]["forecastday"];
-      int maxChance = 0;
-  
-      int i = 0;
-      for (JsonObject day : forecastDays) {
-        int chance = day["day"]["daily_chance_of_rain"] | 0;
-        const char* date = day["date"];  // pl. "2025-07-08"
-  
-        // dátumból nap neve (rövidítve)
-        struct tm timeinfo = {};
-        strptime(date, "%Y-%m-%d", &timeinfo);
-        mktime(&timeinfo); // hogy beállítsa a tm_wday-t
-  
-        const char* daysHu[] = {"V", "H", "K", "Sze", "Cs", "P", "Szo"};
-        String label = daysHu[timeinfo.tm_wday];
-  
-        if (i < 3) {
-          forecastData[i] = {label, chance};
-          ++i;
-        }
-  
-        if (chance > maxChance) {
-          maxChance = chance;
-        }
+
+    JsonArray forecastDays = doc["forecast"]["forecastday"];
+    int maxChance = 0;
+
+    int i = 0;
+    for (JsonObject day : forecastDays) {
+      int chance = day["day"]["daily_chance_of_rain"] | 0;
+      const char* date = day["date"];  // pl. "2025-07-08"
+
+      struct tm timeinfo = {};
+      strptime(date, "%Y-%m-%d", &timeinfo);
+      mktime(&timeinfo); // hogy beállítsa a tm_wday-t
+
+      const char* daysHu[] = {"V", "H", "K", "Sze", "Cs", "P", "Szo"};
+      String label = daysHu[timeinfo.tm_wday];
+
+      if (i < 3) {
+        forecastData[i] = {label, chance};
+        ++i;
       }
-  
-      cachedRainChance = maxChance;
-      Serial.printf("🌦️ Legnagyobb eső esély a következő napokban: %d%%\n", cachedRainChance);
-    } else {
-      Serial.printf("❌ Weather fetch failed: %d\n", httpCode);
+
+      if (chance > maxChance) {
+        maxChance = chance;
+      }
     }
-  
-    http.end();
+
+    cachedRainChance = maxChance;
+    Serial.printf("🌦️ Legnagyobb eső esély a következő napokban: %d%%\n", cachedRainChance);
+  } else {
+    Serial.printf("❌ Weather fetch failed: %d\n", httpCode);
   }
-  
+
+  http.end();
+}
+
 
   bool handleRainForecast(JsonObject weather, int zoneId, int moisture, int maxMoisture, int sensorPin, int relayPin) {
     bool enabled = weather["enabled"] | false;

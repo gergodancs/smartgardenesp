@@ -1,23 +1,21 @@
-// pinConfig.h
-
 #ifndef PIN_CONFIG_H
 #define PIN_CONFIG_H
 
-// Relék (kimenetek)
-#define RELAY_PUMP     16
-#define RELAY_ZONE_1   17
-#define RELAY_ZONE_2   18
-#define RELAY_ZONE_3   19
-#define RELAY_ZONE_4   21
-#define RELAY_ZONE_5   22
-#define RELAY_ZONE_6   23
+// Relék (digitális kimenetek – GPIO 40–46)
+#define RELAY_PUMP     46
+#define RELAY_ZONE_1   45
+#define RELAY_ZONE_2   44
+#define RELAY_ZONE_3   43
+#define RELAY_ZONE_4   42
+#define RELAY_ZONE_5   41
+#define RELAY_ZONE_6   40
 
-// Nedvességszenzorok (analóg bemenetek)
-#define SENSOR_ZONE_1  32
-#define SENSOR_ZONE_2  33
-#define SENSOR_ZONE_3  34
-#define SENSOR_ZONE_4  35 
-#define SENSOR_ZONE_5  36
-#define SENSOR_ZONE_6  39
+// Nedvességszenzorok (analóg bemenetek – ADC1 csoport: 1–10)
+#define SENSOR_ZONE_1  1
+#define SENSOR_ZONE_2  2
+#define SENSOR_ZONE_3  3
+#define SENSOR_ZONE_4  4
+#define SENSOR_ZONE_5  5
+#define SENSOR_ZONE_6  6
 
 #endif

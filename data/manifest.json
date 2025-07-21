@@ -1,0 +1,15 @@
+{
+  "short_name": "SmartGarden",
+  "name": "SmartGarden Irrigation Controller",
+  "icons": [
+    {
+      "src": "/smartlogo.png",
+      "type": "image/png",
+      "sizes": "350x300"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4CAF50",
+  "background_color": "#ffffff"
+}

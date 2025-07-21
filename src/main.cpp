@@ -57,6 +57,8 @@ void checkWeatherLogicIfNeeded(unsigned long now);
 void checkSchedulesIfNeeded(unsigned long now);
 void updateActiveZones(unsigned long now);
 void logLiveSensorData(unsigned long);
+void checkWiFiReconnect();
+void performInitialWiFiScan();
 
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
@@ -78,32 +80,34 @@ void setup() {
   }
   Serial.println("LittleFS mount OK");
 
-  // Statikus fájlok kiszolgálása (React UI)
-  //server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
-  server.serveStatic("/log.txt", LittleFS, "/log.txt");
-
   // Wi-Fi indítása
-  //setupWiFi();
-  Serial.println("wifi indult");
+  setupWiFi();
   registerZoneRoutes(server);
   registerWiFiRoutes(server);
   registerManualWateringRoutes(server);
   registerConfigRoutes(server);
   Serial.println("routok indult");
 
-  server.on("/api/weather-forecast", HTTP_GET, [](AsyncWebServerRequest *request){
-    fetchWeatherForecast();
-    DynamicJsonDocument doc(256);
-    JsonArray arr = doc.to<JsonArray>();
-    for (int i = 0; i < 3; ++i) {
-      JsonObject obj = arr.createNestedObject();
-      obj["label"] = forecastData[i].label;
-      obj["rainChance"] = forecastData[i].rainChance;
-    }
-    String json;
-    serializeJson(doc, json);
-    request->send(200, "application/json", json);
-  });
+server.on("/api/weather-forecast", HTTP_GET, [](AsyncWebServerRequest *request){
+  if (WiFi.status() != WL_CONNECTED) {
+    request->send(503, "application/json", R"({"error":"no internet connection"})");
+    return;
+  }
+
+  fetchWeatherForecast();
+
+  DynamicJsonDocument doc(256);
+  JsonArray arr = doc.to<JsonArray>();
+  for (int i = 0; i < 3; ++i) {
+    JsonObject obj = arr.createNestedObject();
+    obj["label"] = forecastData[i].label;
+    obj["rainChance"] = forecastData[i].rainChance;
+  }
+  String json;
+  serializeJson(doc, json);
+  request->send(200, "application/json", json);
+});
+
   
 
   // GET /api/active-zones → pl. [2, 4]
@@ -118,29 +122,30 @@ server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
   request->send(200, "application/json", response);
 });
 
+
+
+  // Statikus fájlok kiszolgálása (React UI)
+ server.serveStatic("/", LittleFS, "/")
+  .setDefaultFile("index.html")
+  .setFilter([](AsyncWebServerRequest *request) {
+    return !request->url().startsWith("/api/");
+  });
+  server.serveStatic("/log.txt", LittleFS, "/log.txt");
+performInitialWiFiScan();
+
+  
   server.begin();
   Serial.println("Web szerver elindítva");
-
-  //delay(3000);  // adj időt a rádiónak
-
-/* Serial.println("🔍 WiFi hálózatok keresése...");
-int n = WiFi.scanNetworks();
-Serial.printf("📶 %d hálózat találva:\n", n);
-for (int i = 0; i < n; ++i) {
-  Serial.printf("  %s (%d dBm)\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i));
-} */
-
-//preScanNetworks();
 
 }
 
 void loop() {
   unsigned long now = millis();
-/*   checkWeatherLogicIfNeeded(now);
+  checkWeatherLogicIfNeeded(now);
   checkSchedulesIfNeeded(now);
   updateActiveZones(now);
-
-  logLiveSensorData(now); */
+  logLiveSensorData(now); 
+   checkWiFiReconnect();
   
 }
 
@@ -244,4 +249,50 @@ void updateActiveZones(unsigned long now) {
 
   lastMoistureCheck = now;
 }
+
+void checkWiFiReconnect() {
+  static unsigned long lastCheck = 0;
+  if (millis() - lastCheck < 10000) return;
+  lastCheck = millis();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("🔄 Újracsatlakozás a mentett WiFi-re...");
+
+    if (LittleFS.exists("/wifi.json")) {
+      File file = LittleFS.open("/wifi.json", "r");
+      DynamicJsonDocument doc(256);
+      if (deserializeJson(doc, file) == DeserializationError::Ok) {
+        String ssid = doc["ssid"];
+        String password = doc["password"];
+        WiFi.begin(ssid.c_str(), password.c_str());
+      }
+      file.close();
+    }
+  }
+}
+
+
+void performInitialWiFiScan() {
+  Serial.println("📡 WiFi hálózatok keresése (setup)...");
+
+  int n = WiFi.scanNetworks();
+  if (n <= 0) {
+    Serial.println("⚠️ Nincs elérhető hálózat.");
+    return;
+  }
+
+  DynamicJsonDocument doc(1024);
+  JsonArray arr = doc.to<JsonArray>();
+
+  for (int i = 0; i < n; ++i) {
+    arr.add(WiFi.SSID(i));
+  }
+
+  File f = LittleFS.open("/wifi-scan.json", "w");
+  serializeJson(doc, f);
+  f.close();
+
+  Serial.printf("✅ %d hálózat mentve a wifi-scan.json-be.\n", n);
+}
+
 
