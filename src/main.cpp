@@ -63,6 +63,7 @@ void performInitialWiFiScan();
 void setup() {
   configTime(3600 * 1, 0, "pool.ntp.org"); // UTC+1 (pl. Central European Time)
   Serial.begin(115200);
+   Serial.println("🔌 Serial elindult");
 
   // Kimenetek beállítása
   pinMode(RELAY_PUMP, OUTPUT); digitalWrite(RELAY_PUMP, HIGH);
@@ -82,6 +83,7 @@ void setup() {
 
   // Wi-Fi indítása
   setupWiFi();
+  registerWiFiEventHandler();
   registerZoneRoutes(server);
   registerWiFiRoutes(server);
   registerManualWateringRoutes(server);
@@ -131,7 +133,7 @@ server.on("/api/active-zones", HTTP_GET, [](AsyncWebServerRequest *request){
     return !request->url().startsWith("/api/");
   });
   server.serveStatic("/log.txt", LittleFS, "/log.txt");
-performInitialWiFiScan();
+  performInitialWiFiScan();
 
   
   server.begin();
@@ -145,7 +147,7 @@ void loop() {
   checkSchedulesIfNeeded(now);
   updateActiveZones(now);
   logLiveSensorData(now); 
-   checkWiFiReconnect();
+  // checkWiFiReconnect();
   
 }
 
@@ -155,6 +157,9 @@ void logLiveSensorData(unsigned long now) {
 
   Serial.println("📡 Élő szenzorértékek:");
   for (int i = 1; i <= 6; ++i) {
+    String filename = "/zone" + String(i) + ".json";
+    if (!LittleFS.exists(filename)) continue;
+
     int pin = getSensorPin(i);
     int moisture = readSoilMoisture(pin, i);
     if (moisture >= 0) {
@@ -166,6 +171,7 @@ void logLiveSensorData(unsigned long now) {
 
   lastSensorLog = now;
 }
+
 
 void checkWeatherLogicIfNeeded(unsigned long now) {
   static unsigned long lastWeatherCheck = 0;

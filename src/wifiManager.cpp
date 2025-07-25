@@ -1,14 +1,57 @@
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
 #include <WiFi.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
-#include "wifiManager.h"
+#include <ESPAsyncWebServer.h>
+
+bool wifiConnecting = false;
+String pendingSsid, pendingPassword;
+bool wifiEventRegistered = false;
+
+void registerWiFiEventHandler() {
+  if (wifiEventRegistered) return;
+  wifiEventRegistered = true;
+
+  WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) {
+    if (!wifiConnecting) return;
+
+    if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+      Serial.println("📶 STA connected (de még nincs IP).");
+    }
+    else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+      Serial.print("✅ IP-cím: ");
+      Serial.println(WiFi.localIP());
+
+      // WiFi konfiguráció mentése
+      DynamicJsonDocument wifiConfig(256);
+      wifiConfig["ssid"] = pendingSsid;
+      wifiConfig["password"] = pendingPassword;
+
+      File file = LittleFS.open("/wifi.json", "w");
+      if (file) {
+        serializeJson(wifiConfig, file);
+        file.close();
+        Serial.println("💾 WiFi konfiguráció mentve.");
+      } else {
+        Serial.println("⚠️ Mentés sikertelen.");
+      }
+
+      wifiConnecting = false;
+    }
+    else if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+      Serial.printf("❌ STA kapcsolat megszakadt. Hiba: %d\n", info.wifi_sta_disconnected.reason);
+      wifiConnecting = false;
+
+      // Nincs leállítás vagy módváltás – AP végig aktív marad
+    }
+  });
+}
 
 void setupWiFi() {
   WiFi.mode(WIFI_AP_STA);
-
-  const char* apSsid = "SmartGarden";
-  const char* apPassword = "12345678";
-  WiFi.softAP(apSsid, apPassword);
+  WiFi.softAP("SmartGarden", "12345678");
   Serial.print("🌱 AP elérhető: ");
   Serial.println(WiFi.softAPIP());
 
@@ -17,45 +60,35 @@ void setupWiFi() {
   if (LittleFS.exists("/wifi.json")) {
     File file = LittleFS.open("/wifi.json", "r");
     DynamicJsonDocument doc(256);
-    DeserializationError err = deserializeJson(doc, file);
-    file.close();
-
-    if (!err && doc.containsKey("ssid") && doc.containsKey("password")) {
+    if (deserializeJson(doc, file) == DeserializationError::Ok) {
       String ssid = doc["ssid"];
       String password = doc["password"];
+      file.close();
 
       WiFi.begin(ssid.c_str(), password.c_str());
-      Serial.printf("📡 Csatlakozás a hálózathoz: %s\n", ssid.c_str());
+      Serial.printf("📡 Csatlakozás a mentett hálózathoz: %s\n", ssid.c_str());
 
-      unsigned long startAttemptTime = millis();
-      const unsigned long timeout = 10000;
-
-      while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < timeout) {
+      unsigned long start = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
         delay(500);
         Serial.print(".");
       }
 
       staConnected = WiFi.status() == WL_CONNECTED;
     } else {
-      Serial.println("⚠️ Hiba a wifi.json fájl beolvasásakor.");
+      Serial.println("⚠️ Érvénytelen wifi.json.");
+      file.close();
     }
   } else {
-    Serial.println("ℹ️ Nincs elmentett WiFi beállítás (wifi.json).");
+    Serial.println("ℹ️ Nincs mentett WiFi konfiguráció.");
   }
 
   if (staConnected) {
-    Serial.println();
-    Serial.print("✅ STA IP-cím: ");
-    Serial.println(WiFi.localIP());
-
-    Serial.print("📶 Csatlakozott hálózat: ");
-    Serial.println(WiFi.SSID());
-
-    Serial.print("📡 Jelerősség (RSSI): ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
+    Serial.println("\n✅ STA csatlakozott");
+    Serial.print("IP: "); Serial.println(WiFi.localIP());
+    Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
   } else {
-    Serial.println("⚠️ Nem sikerült csatlakozni STA módban.");
+    Serial.println("⚠️ Nem sikerült STA kapcsolat.");
   }
 }
 
@@ -70,75 +103,36 @@ void handleWiFiScanRequest(AsyncWebServerRequest *request) {
   file.close();
 }
 
-
-
-
 void handleWiFiConnectRequest(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-  // 0. JSON parsing
+  if (wifiConnecting) {
+    request->send(400, "application/json", R"({"error":"Connection in progress"})");
+    return;
+  }
+
   DynamicJsonDocument doc(512);
-  DeserializationError error = deserializeJson(doc, data);
-
-  if (error || !doc.containsKey("ssid") || !doc.containsKey("password")) {
-    request->send(400, "application/json", R"({"error":"Missing or invalid JSON"})");
+  if (deserializeJson(doc, data) != DeserializationError::Ok || !doc.containsKey("ssid") || !doc.containsKey("password")) {
+    request->send(400, "application/json", R"({"error":"Invalid or missing SSID/password"})");
     return;
   }
 
-  String ssid = doc["ssid"].as<String>();
-  String password = doc["password"].as<String>();
+  pendingSsid = doc["ssid"].as<String>();
+  pendingPassword = doc["password"].as<String>();
 
-  if (ssid.isEmpty() || ssid.length() > 32 || password.length() > 64) {
-    request->send(400, "application/json", R"({"error":"SSID or password missing/too long"})");
+  if (pendingSsid.isEmpty() || pendingSsid.length() > 32 || pendingPassword.length() > 64) {
+    request->send(400, "application/json", R"({"error":"SSID or password invalid/too long"})");
     return;
   }
 
-  // 1. Meglévő STA kapcsolat bontása
-  WiFi.disconnect(false);
+  wifiConnecting = true;
+  Serial.printf("🔄 WiFi próbálkozás: %s\n", pendingSsid.c_str());
+
+  // AP aktív marad – nincs softAPdisconnect()
+  WiFi.disconnect(true);
   delay(100);
-  WiFi.mode(WIFI_AP_STA);  // AP életben marad
+  WiFi.mode(WIFI_AP_STA); // biztos, hogy dual módban marad
+  WiFi.begin(pendingSsid.c_str(), pendingPassword.c_str());
 
-  // 2. Új kapcsolat próbálkozás
-  Serial.printf("🔄 Csatlakozás: %s\n", ssid.c_str());
-  WiFi.begin(ssid.c_str(), password.c_str());
-
-  const unsigned long timeout = 10000;
-  unsigned long start = millis();
-
-  while (WiFi.status() != WL_CONNECTED && millis() - start < timeout) {
-    delay(100);
-    yield();  // Watchdog védelem
-    Serial.print(".");
-  }
-  Serial.println();
-
-  DynamicJsonDocument response(256);
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("✅ WiFi kapcsolat sikeres");
-
-    // 3. Csak sikeres kapcsolat után mentjük el a beállításokat
-    DynamicJsonDocument wifiConfig(256);
-    wifiConfig["ssid"] = ssid;
-    wifiConfig["password"] = password;
-
-    File file = LittleFS.open("/wifi.json", "w");
-    if (!file) {
-      response["status"] = "connected";
-      response["ip"] = WiFi.localIP().toString();
-      response["warning"] = "WiFi OK, but config file save failed";
-    } else {
-      serializeJson(wifiConfig, file);
-      file.close();
-      response["status"] = "connected";
-      response["ip"] = WiFi.localIP().toString();
-    }
-  } else {
-    Serial.println("❌ Csatlakozás sikertelen, törlés...");
-    WiFi.disconnect(true);  // biztos bontás
-    response["status"] = "failed";
-    response["error"] = "Could not connect to WiFi with provided credentials";
-  }
-
-  String resStr;
-  serializeJson(response, resStr);
-  request->send(200, "application/json", resStr);
+  request->send(200, "application/json", R"({"status":"connecting"})");
 }
+
+#endif
