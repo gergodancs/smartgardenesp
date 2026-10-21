@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "title": "base digital – Marketing für kleine Betriebe in Wien",
+    "description": "Ich bin Panka Gyarmati und betreue Wiener Betriebe, Vereine und Veranstalter ohne eigene Marketingperson. Ich plane, setze um und zeige dir, was es bringt.",
+    "portraitAlt": "Porträt von Panka Gyarmati"
+  },
+  "nav": {
+    "menu": "Menü",
+    "close": "Schließen",
+    "cta": "Erstgespräch",
+    "services": "Leistungen",
+    "cases": "Cases",
+    "about": "Über mich",
+    "skip": "Zum Inhalt",
+    "language": "Sprache",
+    "place": "Wien"
+  },
+  "hero": {
+    "eyebrow": "Social Media, Newsletter & Google-Profil für kleine Betriebe in Wien",
+    "lines": ["Mehr Stammkundschaft,", "mehr Sichtbarkeit,", "volle Termine."],
+    "body": "Ich bin Panka Gyarmati und betreue Wiener Betriebe, Vereine und Veranstalter ohne eigene Marketingperson. Ich plane, setze um und zeige dir, was es bringt.",
+    "primary": "Kostenloses Erstgespräch",
+    "secondary": "Oder starte mit dem Kommunikations-Check",
+    "audiences": "Cafés & Gastro · Studios & Kursanbieter · Praxen & Beauty · Vereine & Events · kleine Marken"
+  },
+  "proof": {
+    "items": [
+      {
+        "figure": "11.700+",
+        "text": "neue Instagram-Follower in 3 Wochen · Red Bull X-Alps 2023 (im 2er-Team)"
+      },
+      {
+        "figure": "360",
+        "text": "Tickets ausverkauft · BODYART ZEN 2025"
+      },
+      {
+        "figure": "108",
+        "text": "Ticketkäufe mit rund 830 € Werbebudget · Rock a Rail 2026"
+      }
+    ]
+  },
+  "services": {
+    "title": "Was ich für kleine Betriebe in Wien mache",
+    "items": [
+      {
+        "index": "01",
+        "title": "Gesehen werden",
+        "text": "Google-Profil, Website-Texte und Social Media so aufgestellt, dass dich Leute finden, wenn sie nach dir suchen."
+      },
+      {
+        "index": "02",
+        "title": "Community aufbauen",
+        "text": "Instagram und Newsletter mit Plan, damit aus Erstbesucher:innen Stammkundschaft wird. Ich richte den Newsletter ein, schreibe die Inhalte und zeige dir die Zahlen."
+      },
+      {
+        "index": "03",
+        "title": "Events und Angebote füllen",
+        "text": "Kampagnen für Events, Kurse und Launches, von der Ankündigung bis zum vollen Termin."
+      }
+    ]
+  },
+  "packages": {
+    "title": "Pakete und Preise",
+    "intro": "Du kannst klein anfangen. Viele starten mit dem Check und entscheiden dann, wie viel sie abgeben wollen.",
+    "items": [
+      {
+        "title": "Kommunikations-Check",
+        "text": "Ich schaue mir an, wo du stehst, und sage dir, was zuerst zählt.",
+        "points": [
+          "Analyse von Instagram, Google-Profil, Website und Newsletter",
+          "Top-5-Maßnahmen",
+          "Besprechung (60 Min.)"
+        ],
+        "cadence": "einmalig",
+        "price": "ab [PREIS] €",
+        "cta": "Check anfragen",
+        "featured": false
+      },
+      {
+        "title": "Strategie-Paket",
+        "text": "Du bekommst einen Plan für die nächsten drei Monate, den du selbst oder mit mir umsetzt.",
+        "points": [
+          "Zielgruppe und Ziele",
+          "Content-Säulen",
+          "Redaktionsplan für 3 Monate",
+          "Newsletter-Konzept",
+          "Google-Profil optimiert"
+        ],
+        "cadence": "einmalig",
+        "price": "ab [PREIS] €",
+        "cta": "Strategie besprechen",
+        "featured": true
+      },
+      {
+        "title": "Laufende Betreuung",
+        "text": "Ich übernehme Social Media und Newsletter, du bekommst jeden Monat die Zahlen.",
+        "points": [
+          "Planung und Umsetzung Social Media",
+          "Newsletter",
+          "Community-Betreuung",
+          "Monatlicher Report und Termin"
+        ],
+        "cadence": "monatlich, in 2 Größen",
+        "price": "ab [PREIS] € / Monat",
+        "cta": "Erstgespräch buchen",
+        "featured": false
+      }
+    ]
+  },
+  "cases": {
+    "title": "Referenzen: Was dabei herauskommt",
+    "intro": "Viele meiner Projekte kommen aus Sport und Events. Das Prinzip funktioniert überall, wo Menschen wiederkommen sollen.",
+    "items": [
+      {
+        "name": "Rock a Rail",
+        "figure": "108",
+        "caption": "Ticketkäufe mit rund 830 € Werbebudget",
+        "text": "Für den Ungarischen Snowboardverband (2026) habe ich als Kommunikations-Lead Social Media, Newsletter und Ads für das Event verantwortet: 535 Zusagen, rund 690.000 Aufrufe, über 70 % davon von Nicht-Follower:innen."
+      },
+      {
+        "name": "Red Bull X-Alps 2023",
+        "figure": "8 Mio.",
+        "caption": "Videoaufrufe auf Instagram in 3 Wochen",
+        "text": "Über Zoom Productions war ich Teil des zweiköpfigen Social-Media-Teams und habe das Rennen von der Vorbereitung bis zur Nachbereitung betreut und laufend Content produziert."
+      },
+      {
+        "name": "BODYART ZEN",
+        "figure": "360",
+        "caption": "Tickets, ausverkauft (ZEN 2025)",
+        "text": "Seit 2023 plane ich die Kommunikation für die größte Veranstaltung von BODYART. ZEN 2026 war zwei Monate vorher zu über 70 % verkauft."
+      },
+      {
+        "name": "Go Primal",
+        "figure": "28",
+        "caption": "neue Händler in 3 Monaten",
+        "text": "Von 2023 bis 2025 habe ich für die DACH-Region die Marke, Content und Vertrieb aufgebaut, vor allem bei CrossFit-Boxen, und Events wie „Women Gone Strong“ (ausgebucht) organisiert."
+      }
+    ],
+    "also": "Außerdem: Newsletter-Launch BODYART × BrainGood (68 Webinar-Anmeldungen) · Ungarische Post (Silber, Content Marketing Award 2021, über Dot Creative) · Double Shot (Social Media über Dot Creative)"
+  },
+  "about": {
+    "title": "Über mich",
+    "body": "Ich bin Panka Gyarmati und betreue Wiener Betriebe, Vereine und Veranstalter ohne eigene Marketingperson. Ich plane, setze um und zeige dir, was es bringt."
+  },
+  "closing": {
+    "text": "Starte mit einem kostenlosen Erstgespräch.",
+    "cta": "Kostenloses Erstgespräch"
+  },
+  "footer": {
+    "copy": "© 2026 base digital"
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "home": "Zur Startseite"
+  }
+}

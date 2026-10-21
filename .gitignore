@@ -1,5 +1,12 @@
-.pio
-.vscode/.browse.c_cpp.db*
-.vscode/c_cpp_properties.json
-.vscode/launch.json
-.vscode/ipch
+node_modules
+.next
+out
+build
+.DS_Store
+*.pem
+npm-debug.log*
+.yarn
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+.vercel
