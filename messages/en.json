@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "title": "base digital – Marketing for small businesses in Vienna",
+    "description": "I’m Panka Gyarmati. I look after Vienna businesses, clubs, and organisers who don’t have a marketer of their own. I plan it, I do it, and I show you what it did.",
+    "portraitAlt": "Portrait of Panka Gyarmati"
+  },
+  "nav": {
+    "menu": "Menu",
+    "close": "Close",
+    "cta": "Intro call",
+    "services": "Services",
+    "cases": "Work",
+    "about": "About",
+    "skip": "Skip to content",
+    "language": "Language",
+    "place": "Vienna"
+  },
+  "hero": {
+    "eyebrow": "Social media, newsletter & Google profile for small businesses in Vienna",
+    "lines": ["More regulars,", "more visibility,", "full calendars."],
+    "body": "I’m Panka Gyarmati. I look after Vienna businesses, clubs, and organisers who don’t have a marketer of their own. I plan it, I do it, and I show you what it did.",
+    "primary": "Free intro call",
+    "secondary": "Or start with the communication check",
+    "audiences": "Cafés & food · Studios & course providers · Practices & beauty · Clubs & events · small brands"
+  },
+  "proof": {
+    "items": [
+      {
+        "figure": "11.700+",
+        "text": "new Instagram followers in 3 weeks · Red Bull X-Alps 2023 (team of two)"
+      },
+      {
+        "figure": "360",
+        "text": "tickets sold out · BODYART ZEN 2025"
+      },
+      {
+        "figure": "108",
+        "text": "ticket purchases with about €830 in ads · Rock a Rail 2026"
+      }
+    ]
+  },
+  "services": {
+    "title": "What I do for small businesses in Vienna",
+    "items": [
+      {
+        "index": "01",
+        "title": "Get found",
+        "text": "Google profile, website copy, and social set up so people find you when they look."
+      },
+      {
+        "index": "02",
+        "title": "Build a community",
+        "text": "Instagram and a newsletter with a plan, so first-time visitors become regulars. I set up the newsletter, write it, and show you the numbers."
+      },
+      {
+        "index": "03",
+        "title": "Fill events and offers",
+        "text": "Campaigns for events, courses, and launches, from the announcement to a full booking sheet."
+      }
+    ]
+  },
+  "packages": {
+    "title": "Packages and prices",
+    "intro": "You can start small. A lot of people begin with the check, then decide how much to hand over.",
+    "items": [
+      {
+        "title": "Communication check",
+        "text": "I look at where you stand and tell you what matters first.",
+        "points": [
+          "Analysis of Instagram, Google profile, website, and newsletter",
+          "Top 5 actions",
+          "Conversation (60 min.)"
+        ],
+        "cadence": "one-time",
+        "price": "ab [PREIS] €",
+        "cta": "Request the check",
+        "featured": false
+      },
+      {
+        "title": "Strategy package",
+        "text": "You get a plan for the next three months, which you carry out yourself or with me.",
+        "points": [
+          "Audience and goals",
+          "Content pillars",
+          "Editorial plan for 3 months",
+          "Newsletter concept",
+          "Google profile optimised"
+        ],
+        "cadence": "one-time",
+        "price": "ab [PREIS] €",
+        "cta": "Talk through the strategy",
+        "featured": true
+      },
+      {
+        "title": "Ongoing support",
+        "text": "I take over social media and the newsletter, and you get the numbers every month.",
+        "points": [
+          "Planning and running social media",
+          "Newsletter",
+          "Looking after the community",
+          "Monthly report and meeting"
+        ],
+        "cadence": "monthly, in 2 sizes",
+        "price": "ab [PREIS] € / month",
+        "cta": "Book an intro call",
+        "featured": false
+      }
+    ]
+  },
+  "cases": {
+    "title": "Selected work",
+    "intro": "A lot of my work comes from sport and events. The same idea works anywhere people are meant to come back.",
+    "items": [
+      {
+        "name": "Rock a Rail",
+        "figure": "108",
+        "caption": "ticket purchases with about €830 in ads",
+        "text": "For the Hungarian Snowboard Association (2026), as communications lead, I was responsible for social media, the newsletter, and ads for the event: 535 RSVPs, about 690,000 views, over 70% of them from non-followers."
+      },
+      {
+        "name": "Red Bull X-Alps 2023",
+        "figure": "8 million",
+        "caption": "video views on Instagram in 3 weeks",
+        "text": "With Zoom Productions I was part of the two-person social media team. I looked after the race from preparation through the follow-up and produced content throughout."
+      },
+      {
+        "name": "BODYART ZEN",
+        "figure": "360",
+        "caption": "tickets, sold out (ZEN 2025)",
+        "text": "Since 2023 I have been planning communications for BODYART’s biggest event. ZEN 2026 was over 70% sold two months beforehand."
+      },
+      {
+        "name": "Go Primal",
+        "figure": "28",
+        "caption": "new retailers in 3 months",
+        "text": "From 2023 to 2025 I built the brand, content, and sales for the DACH region, especially at CrossFit boxes, and organised events such as “Women Gone Strong” (sold out)."
+      }
+    ],
+    "also": "Also: newsletter launch BODYART × BrainGood (68 webinar sign-ups) · Hungarian Post (silver, Content Marketing Award 2021, via Dot Creative) · Double Shot (social media via Dot Creative)"
+  },
+  "about": {
+    "title": "About",
+    "body": "I’m Panka Gyarmati. I look after Vienna businesses, clubs, and organisers who don’t have a marketer of their own. I plan it, I do it, and I show you what it did."
+  },
+  "closing": {
+    "text": "Start with a free intro call.",
+    "cta": "Free intro call"
+  },
+  "footer": {
+    "copy": "© 2026 base digital"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "home": "Back to the start"
+  }
+}
