@@ -85,7 +85,15 @@ export function MenuOverlay({ open, onNavigate, onExit }: MenuOverlayProps) {
                   href={`#${link.id}`}
                   initial={reduce ? false : { opacity: 0, y: 28 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
+                  exit={
+                    reduce
+                      ? { opacity: 0, transition: { duration: 0 } }
+                      : {
+                          opacity: 0,
+                          y: 12,
+                          transition: { duration: 0.22, delay: (LINKS.length - 1 - index) * 0.05, ease: EASE },
+                        }
+                  }
                   transition={{
                     duration: reduce ? 0 : 0.5,
                     delay: reduce ? 0 : 0.18 + index * 0.06,
